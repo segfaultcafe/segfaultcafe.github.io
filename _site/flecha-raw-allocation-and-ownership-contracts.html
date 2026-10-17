@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-GX2L7MWQLN"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-GX2L7MWQLN');
+</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+          .MathJax {
+  font-size: 180%; /* Adjust the percentage as needed */
+}
+  </style>
+
+  <title>Flecha Dev Log #20: Raw Allocation and Ownership Contracts</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <script defer src="/assets/flecha-highlight.js"></script>
+  
+  <link href="/atom.xml" type="application/atom+xml" rel="alternate" title="ATOM Feed" /> <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Flecha Dev Log #20: Raw Allocation and Ownership Contracts | Cecil Daemon’s Wish</title>
+<meta name="generator" content="Jekyll v4.3.3" />
+<meta property="og:title" content="Flecha Dev Log #20: Raw Allocation and Ownership Contracts" />
+<meta name="author" content="J. Alex Buschinelli" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Introduction" />
+<meta property="og:description" content="Introduction" />
+<link rel="canonical" href="http://localhost:4000/flecha-raw-allocation-and-ownership-contracts" />
+<meta property="og:url" content="http://localhost:4000/flecha-raw-allocation-and-ownership-contracts" />
+<meta property="og:site_name" content="Cecil Daemon’s Wish" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-09-21T00:00:00-03:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Flecha Dev Log #20: Raw Allocation and Ownership Contracts" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"J. Alex Buschinelli","url":"https://alexbsec.github.io/"},"dateModified":"2025-09-21T00:00:00-03:00","datePublished":"2025-09-21T00:00:00-03:00","description":"Introduction","headline":"Flecha Dev Log #20: Raw Allocation and Ownership Contracts","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/flecha-raw-allocation-and-ownership-contracts"},"url":"http://localhost:4000/flecha-raw-allocation-and-ownership-contracts"}</script>
+<!-- End Jekyll SEO tag -->
+
+</head>
+
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    
+    <div style="display: flex; justify-content: center; align-items: center; text-decoration: none;">
+      <a href="/" style="display: flex; align-items: center; text-decoration: none;">
+          <img src="/assets/cecil.gif" alt="Cecil Daemon" style="margin-right: 20px;"/>
+          
+          
+          <h1>cecil@celestial:/flecha-raw-allocation-and-ownership-contracts $</h1>
+      
+      </a>
+  </div>
+  <br>
+    </a>
+    <div class="header-links">
+      <a href="/"><h2 class="header-link">Home</h2></a>
+<a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+<a href="/atom.xml"><h2 class="header-link">RSS</h2></a>
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Flecha Dev Log #20: Raw Allocation and Ownership Contracts</h2>
+  <time datetime="2025-09-21T00:00:00-03:00" class="by-line">21 Sep 2025</time>
+  <p>Estimated read time: 4 minutes</p>
+  <h1 id="introduction"><a href="#intro"></a>Introduction</h1>
+
+<p>Hi folks!</p>
+
+<p>Raw pointers could address memory, defer could schedule cleanup, tuples could return multiple values, errors could describe failure, and structures knew how to tear themselves down.</p>
+
+<p>The pieces were ready for explicit heap allocation.</p>
+
+<p><code class="language-plaintext highlighter-rouge">new</code>, <code class="language-plaintext highlighter-rouge">free</code>, mandatory allocation analysis, and the <code class="language-plaintext highlighter-rouge">own</code> and <code class="language-plaintext highlighter-rouge">lend</code> contracts make cleanup responsibility explicit across function and structure boundaries.</p>
+
+<h1 id="allocation-returns-two-things"><a href="#allocation-returns-two-things"></a>Allocation returns two things</h1>
+
+<p><code class="language-plaintext highlighter-rouge">new&lt;T&gt;(value)</code> returns a raw pointer and generic error:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">unsafe {
+    (*u8 pointer, error err) = new&lt;u8&gt;(42);
+    if err != none {
+        return 1;
+    }
+
+    defer free(pointer);
+    *pointer = 43;
+}</code></pre></div></div>
+
+<p>Success produces a non-null pointer and <code class="language-plaintext highlighter-rouge">none</code>. Failure produces null and <code class="language-plaintext highlighter-rouge">AllocationError.OutOfMemory</code>.</p>
+
+<p>The compiler calculates the native size and alignment for <code class="language-plaintext highlighter-rouge">T</code>. The runtime obtains zeroed, correctly aligned storage. On success, the initializer evaluates once and constructs directly into that final address.</p>
+
+<p>On allocation failure, the initializer does not run. Constructors are not called, assignments inside it do not happen, and there is nothing to tear down.</p>
+
+<p>That failure path had to be visible to definite-assignment and borrow analysis.</p>
+
+<h1 id="free-knows-the-pointee-type"><a href="#free-knows-the-pointee-type"></a>Free knows the pointee type</h1>
+
+<p><code class="language-plaintext highlighter-rouge">free(pointer)</code> evaluates the pointer once. For a non-null pointer, it runs the structure tear hook, recursively destroys owned fields and elements, then releases the backing storage.</p>
+
+<p><code class="language-plaintext highlighter-rouge">free(null)</code> is a no-op. A pointer to const may still be freed because read-only access does not erase ownership responsibility.</p>
+
+<p>Void pointers cannot use this typed free operation: the compiler needs the original pointee type to run destruction correctly.</p>
+
+<p>Stack addresses, interior addresses, foreign allocations, mismatched types, and already-freed pointers are invalid inputs.</p>
+
+<h1 id="unsafe-is-still-checked"><a href="#unsafe-is-still-checked"></a>Unsafe is still checked</h1>
+
+<p>Allocation and free require unsafe permission, but the compiler does not stop there.</p>
+
+<p>After type checking, definite assignment, and borrow checking, Flecha runs mandatory allocation analysis before lowering. It tracks allocation identities through local aliases, tuple destructuring, immutable aggregate snapshots, reference-mediated pointer assignment, branches, loops, <code class="language-plaintext highlighter-rouge">also</code>, jumps, calls, and deferred cleanups.</p>
+
+<p>It rejects:</p>
+
+<ul>
+  <li>losing the last tracked handle or leaving a live allocation behind;</li>
+  <li>freeing one allocation twice through different aliases;</li>
+  <li>using a pointer after a tracked free;</li>
+  <li>dereferencing the known-null failure result;</li>
+  <li>freeing known stack or interior storage;</li>
+  <li>ownership flows the current checker cannot represent.</li>
+</ul>
+
+<p>These are errors, not optional warnings. Rejected programs produce no object file.</p>
+
+<h1 id="defer-reserves-cleanup"><a href="#defer-reserves-cleanup"></a>Defer reserves cleanup</h1>
+
+<p><code class="language-plaintext highlighter-rouge">defer free(pointer)</code> captures the pointer now and schedules the release for scope exit.</p>
+
+<p>The allocation remains live until then, but its cleanup obligation is reserved. An explicit free or conflicting ownership transfer before the deferred call executes is rejected.</p>
+
+<p>Rebinding the original variable does not change the captured allocation:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">another, failure := new&lt;u8&gt;(1);
+defer free(another);
+another = null;</code></pre></div></div>
+
+<p>The deferred snapshot still releases the allocated byte.</p>
+
+<h1 id="own-and-lend"><a href="#own-and-lend"></a>Own and lend</h1>
+
+<p>Interpreting every helper body can only go so far, especially for recursion and separately reasoned APIs. Flecha added explicit raw-pointer ownership contracts:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">unsafe void release(own *i32 pointer) {
+    free(pointer);
+}
+
+unsafe i32 read(lend *const i32 pointer) {
+    if pointer == null {
+        return 0;
+    }
+    return *pointer;
+}
+
+unsafe (own *i32, error) create() {
+    return new&lt;i32&gt;(42);
+}</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">lend</code> permits access during the call but forbids freeing, consuming, returning, or retaining the allocation.</p>
+
+<p><code class="language-plaintext highlighter-rouge">own</code> transfers cleanup responsibility unconditionally at the call boundary. Every normal callee exit must free it, forward it to another owner, store it in an owning field, or return it as an owning result.</p>
+
+<p>Transfer does not write null into old aliases at runtime, but the checker makes those aliases unavailable for later access or cleanup.</p>
+
+<h1 id="ownership-inside-structures"><a href="#ownership-inside-structures"></a>Ownership inside structures</h1>
+
+<p>Structures can declare owning raw-pointer fields:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">structure Box {
+    own *i32 value;
+};
+
+unsafe Box Box::init(own *i32 value) override {
+    return build Box {
+        self.value = value;
+    };
+}
+
+unsafe void Box::tear(&amp;self) override {
+    free(self-&gt;value);
+}</code></pre></div></div>
+
+<p>An owning field requires an explicit tear, and the compiler independently verifies that all normal tear exits discharge the field.</p>
+
+<p>Other methods receive only lent access to it. Extraction, replacement of a live owning field, and arbitrary external access remained restricted until their state transitions could be modeled.</p>
+
+<h1 id="conservative-limits"><a href="#conservative-limits"></a>Conservative limits</h1>
+
+<p>This checker does not make arbitrary unsafe code memory-safe.</p>
+
+<p>External pointer validity, raw aliasing, nullability, and stack lifetimes remain caller obligations. Dynamic containers of owning pointers, unannotated recursive effects, and ownership patterns outside the current state model are rejected.</p>
+
+<p>The analysis also uses explicit state budgets. Exceeding them is a compiler error rather than silent acceptance. Complex valid code may need simpler control flow or declared contracts.</p>
+
+<p>That tradeoff was intentional: when ownership cannot be verified, Flecha says so before native code exists.</p>
+
+<h1 id="conclusion"><a href="#conclusion"></a>Conclusion</h1>
+
+<p>Raw allocation completed a long chain of prerequisites. It depended on unsafe permission, tuples, errors, defer, typed destruction, control-flow graphs, and structure lifecycle rules.</p>
+
+<p>Ownership contracts then made cleanup responsibility visible at API boundaries without changing the pointer’s runtime representation.</p>
+
+<p>The model moves from “the programmer must remember to free this” to “the compiler requires a complete ownership path before code generation.” It remains conservative and explicitly unsafe, but cleanup responsibility is visible and mechanically checked.</p>
+
+<p>I hope you liked this write-up and learned something new. As always, don’t forget to do your <strong>research!</strong></p>
+
+<p><a href="/">Go back</a></p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-nc/3.0/deed.en_US">
+    <span>
+        <b>Alex Buschinelli</b>
+    </span>
+    
+    <span>© 2026</span>
+  </a>
+</footer>
+
+  
+</body>
+
+</html>

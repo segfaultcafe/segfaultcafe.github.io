@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-GX2L7MWQLN"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-GX2L7MWQLN');
+</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+          .MathJax {
+  font-size: 180%; /* Adjust the percentage as needed */
+}
+  </style>
+
+  <title>Flecha Dev Log #34: Returning References and Slices</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <script defer src="/assets/flecha-highlight.js"></script>
+  
+  <link href="/atom.xml" type="application/atom+xml" rel="alternate" title="ATOM Feed" /> <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Flecha Dev Log #34: Returning References and Slices | Cecil Daemon’s Wish</title>
+<meta name="generator" content="Jekyll v4.3.3" />
+<meta property="og:title" content="Flecha Dev Log #34: Returning References and Slices" />
+<meta name="author" content="J. Alex Buschinelli" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Introduction" />
+<meta property="og:description" content="Introduction" />
+<link rel="canonical" href="http://localhost:4000/flecha-returning-references-and-slices" />
+<meta property="og:url" content="http://localhost:4000/flecha-returning-references-and-slices" />
+<meta property="og:site_name" content="Cecil Daemon’s Wish" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-10-17T00:00:00-03:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Flecha Dev Log #34: Returning References and Slices" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"J. Alex Buschinelli","url":"https://alexbsec.github.io/"},"dateModified":"2026-10-17T00:00:00-03:00","datePublished":"2026-10-17T00:00:00-03:00","description":"Introduction","headline":"Flecha Dev Log #34: Returning References and Slices","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/flecha-returning-references-and-slices"},"url":"http://localhost:4000/flecha-returning-references-and-slices"}</script>
+<!-- End Jekyll SEO tag -->
+
+</head>
+
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    
+    <div style="display: flex; justify-content: center; align-items: center; text-decoration: none;">
+      <a href="/" style="display: flex; align-items: center; text-decoration: none;">
+          <img src="/assets/cecil.gif" alt="Cecil Daemon" style="margin-right: 20px;"/>
+          
+          
+          <h1>cecil@celestial:/flecha-returning-references-and-slices $</h1>
+      
+      </a>
+  </div>
+  <br>
+    </a>
+    <div class="header-links">
+      <a href="/"><h2 class="header-link">Home</h2></a>
+<a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+<a href="/atom.xml"><h2 class="header-link">RSS</h2></a>
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Flecha Dev Log #34: Returning References and Slices</h2>
+  <time datetime="2026-10-17T00:00:00-03:00" class="by-line">17 Oct 2026</time>
+  <p>Estimated read time: 6 minutes</p>
+  <h1 id="introduction"><a href="#intro"></a>Introduction</h1>
+
+<p>Hi folks!</p>
+
+<p>Flecha had checked references. It had checked slices. We could borrow a variable, pass the borrow into a function, prevent conflicting access while it was live, and release the restriction after its last use.</p>
+
+<p>It felt like we had everything.</p>
+
+<p>Then we tried to return a slice.</p>
+
+<p>The slice itself is only an address and a length. Returning those bits is easy. The real question is whether the storage behind them remains alive, and which value in the caller must remain borrowed while the returned view is used.</p>
+
+<p>Then the same problem appeared when returning a reference to a structure field.</p>
+
+<p>How do we make sure the borrowed lifetime stays in scope? How do we carry that relationship through a call while preserving Flecha’s existing last-use and exclusivity rules?</p>
+
+<p>That is what this dev log is about.</p>
+
+<h1 id="the-missing-relationship"><a href="#the-missing-relationship"></a>The missing relationship</h1>
+
+<p>Consider a function that returns the tail of a slice:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">[]const i32 tail([]const i32 values) {
+    return values[1:];
+}</code></pre></div></div>
+
+<p>The return type tells us that the result is a read-only slice. It does not say where the slice came from.</p>
+
+<p>If it came from <code class="language-plaintext highlighter-rouge">values</code>, the caller’s original sequence must stay borrowed. If it came from a local array, returning it must be rejected because that array disappears with the call. If a function receives two slices, the result type alone cannot tell us which argument anchors the returned view.</p>
+
+<p>References have exactly the same gap:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">&amp;const i32 value(&amp;const Box self) {
+    return &amp;self-&gt;value;
+}</code></pre></div></div>
+
+<p>The compiler can see the origin inside this body, but callers need that relationship in the function’s contract. Once the function is registered in another module or instantiated through a generic, its implementation cannot be the caller’s lifetime model.</p>
+
+<h1 id="name-the-source"><a href="#name-the-source"></a>Name the source</h1>
+
+<p>Flecha now writes that relationship with <code class="language-plaintext highlighter-rouge">&lt;- source</code>:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">[]const i32 tail([]const i32 values) &lt;- values {
+    return values[1:];
+}
+
+&amp;const i32 value(&amp;const Box self) &lt;- self {
+    return &amp;self-&gt;value;
+}</code></pre></div></div>
+
+<p>Read it as “the returned borrow comes from this parameter.”</p>
+
+<p>The contract is compile-time information. It does not add a lifetime object, reference counter, hidden allocation, or extra field to a slice. References and slices keep their native representation.</p>
+
+<p>The named source must be a checked reference or checked slice parameter. A raw pointer, owning pointer, ordinary value, local variable, or temporary cannot anchor a safe returned loan. Even an <code class="language-plaintext highlighter-rouge">unsafe</code> block cannot manufacture that proof.</p>
+
+<p>Every result containing a checked reference or checked slice requires a contract. A contract on a function that returns no borrowed value is also an error. The syntax describes one exact relationship; it is not a decorative annotation.</p>
+
+<h1 id="the-callee-proves-the-origin"><a href="#the-callee-proves-the-origin"></a>The callee proves the origin</h1>
+
+<p>Every reachable return path is checked against the declared source.</p>
+
+<p>Returning the source itself is valid. So is returning a checked reborrow derived from it: a structure field, a fixed-array element, a fixed-array slice, a slice element, or a subslice. Returning a reference to a local or to another parameter is rejected even if the types look identical.</p>
+
+<p>Permission can become weaker, never stronger:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&amp;T       -&gt; &amp;T          allowed
+&amp;T       -&gt; &amp;const T    allowed
+&amp;const T -&gt; &amp;const T    allowed
+&amp;const T -&gt; &amp;T          rejected
+
+[]T       -&gt; []T          allowed
+[]T       -&gt; []const T    allowed
+[]const T -&gt; []const T    allowed
+[]const T -&gt; []T          rejected
+</code></pre></div></div>
+
+<p>A function may expose less access than it received. It cannot turn shared access into exclusive mutation.</p>
+
+<h1 id="the-caller-inherits-the-loan"><a href="#the-caller-inherits-the-loan"></a>The caller inherits the loan</h1>
+
+<p>At a call site, the compiler substitutes the actual argument’s origin into the returned value:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">values := [10, 20, 30, 40];
+rest := tail(values[:]);
+
+stdoutln(rest[0]);
+values[1] = 21;</code></pre></div></div>
+
+<p>While <code class="language-plaintext highlighter-rouge">rest</code> is live, it protects the original sequence according to ordinary borrow rules. Its last use is <code class="language-plaintext highlighter-rouge">rest[0]</code>, so the later mutation is valid.</p>
+
+<p>Move that mutation before the <code class="language-plaintext highlighter-rouge">stdoutln</code> and the compiler rejects it: the read-only slice still borrows the sequence. Try to move, rebind, or destroy the source while the result is live and the same protection applies.</p>
+
+<p>The returned handle participates in everything Flecha already knows: exclusivity, last-use analysis, parent reborrows, field projections, moved handles, branches, loops, and scope exits. We did not need a second borrow checker. We needed the call boundary to preserve the information the existing checker was missing.</p>
+
+<h1 id="contracts-compose"><a href="#contracts-compose"></a>Contracts compose</h1>
+
+<p>A contracted function may return the result of another contracted function when the inner loan ultimately comes from the outer function’s declared source:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">[]const i32 skip_two([]const i32 values) &lt;- values {
+    return tail(tail(values));
+}</code></pre></div></div>
+
+<p>The origin survives nested calls, module boundaries, generic specialization, and recursion. The compiler stores the source parameter in the function symbol, then substitutes the caller’s concrete origin each time the function is used.</p>
+
+<p>This is where the architectural choice pays off. The relationship is part of the function’s semantic contract, so it does not disappear after parsing or depend on inlining the body.</p>
+
+<h1 id="more-than-one-result"><a href="#more-than-one-result"></a>More than one result</h1>
+
+<p>A single source can produce a flat tuple containing borrowed results:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">structure Pair {
+    i32 left;
+    i32 right;
+};
+
+(&amp;i32, &amp;i32) fields(&amp;Pair pair) &lt;- pair {
+    return (&amp;pair-&gt;left, &amp;pair-&gt;right);
+}
+
+Pair pair = none;
+left, right := fields(&amp;pair);
+*left = 20;
+*right = 22;</code></pre></div></div>
+
+<p>Each destination receives its own origin, projection, mutability, movement, and last-use state. Distinct structure fields can be proven disjoint, so the two mutable results above are valid.</p>
+
+<p>Returning the same mutable place twice is rejected. Mixing a mutable result with an overlapping shared result is rejected too. Mutable array and slice elements remain conservative whole-sequence loans, so two mutable element results are rejected even when their runtime indices happen to differ.</p>
+
+<p>The compiler accepts disjointness it can prove, not disjointness we merely expect.</p>
+
+<h1 id="why-immediate-destructuring-matters"><a href="#why-immediate-destructuring-matters"></a>Why immediate destructuring matters</h1>
+
+<p>A tuple containing borrowed values must be consumed through immediate destructuring:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">left, right := fields(&amp;pair);</code></pre></div></div>
+
+<p>Storing that borrowed tuple, nesting it, passing it as an ordinary aggregate, or capturing it in <code class="language-plaintext highlighter-rouge">defer</code> is rejected.</p>
+
+<p>Immediate destructuring gives every returned handle an independent tracked state at the exact call site. Supporting a stored aggregate of loans would require the aggregate itself to preserve and expose several lifetime relationships. Until that model exists, keeping the operation flat makes the accepted behavior honest.</p>
+
+<h1 id="what-the-contract-does-not-do"><a href="#what-the-contract-does-not-do"></a>What the contract does not do</h1>
+
+<p><code class="language-plaintext highlighter-rouge">&lt;-</code> does not turn raw pointers into checked references. It does not let a safe API borrow arbitrary heap storage whose owner relationship is unknown. It does not cover returned <code class="language-plaintext highlighter-rouge">stringv</code>, external C references, or several independent source parameters.</p>
+
+<p>These boundaries are intentional. A single source is precise enough to state, validate, compose, and explain, so the accepted feature stays within what the caller can prove today.</p>
+
+<h1 id="conclusion"><a href="#conclusion"></a>Conclusion</h1>
+
+<p>Returning a reference or slice was never mainly about returning an address. It was about returning a relationship.</p>
+
+<p><code class="language-plaintext highlighter-rouge">&lt;- source</code> makes that relationship part of the function contract. The callee proves that every borrowed result comes from the declared parameter; the caller keeps the corresponding storage borrowed for exactly as long as the result remains live.</p>
+
+<p>No garbage collector, hidden allocation, or runtime lifetime table is required. We preserve the origin, enforce the permission, and let last-use analysis do the rest.</p>
+
+<p>This is the kind of Flecha problem I love: the syntax is tiny, but it carries exactly the information needed to make a low-level operation feel direct and still remain checked.</p>
+
+<p>I hope you liked this write-up and learned something new. As always, don’t forget to do your <strong>research!</strong></p>
+
+<p><a href="/">Go back</a></p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-nc/3.0/deed.en_US">
+    <span>
+        <b>Alex Buschinelli</b>
+    </span>
+    
+    <span>© 2026</span>
+  </a>
+</footer>
+
+  
+</body>
+
+</html>

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-GX2L7MWQLN"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-GX2L7MWQLN');
+</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+          .MathJax {
+  font-size: 180%; /* Adjust the percentage as needed */
+}
+  </style>
+
+  <title>Flecha Dev Log #31: Shipping the Editor Experience</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <script defer src="/assets/flecha-highlight.js"></script>
+  
+  <link href="/atom.xml" type="application/atom+xml" rel="alternate" title="ATOM Feed" /> <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Flecha Dev Log #31: Shipping the Editor Experience | Cecil Daemon’s Wish</title>
+<meta name="generator" content="Jekyll v4.3.3" />
+<meta property="og:title" content="Flecha Dev Log #31: Shipping the Editor Experience" />
+<meta name="author" content="J. Alex Buschinelli" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Introduction" />
+<meta property="og:description" content="Introduction" />
+<link rel="canonical" href="http://localhost:4000/flecha-editor-packaging" />
+<meta property="og:url" content="http://localhost:4000/flecha-editor-packaging" />
+<meta property="og:site_name" content="Cecil Daemon’s Wish" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-08-22T00:00:00-03:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Flecha Dev Log #31: Shipping the Editor Experience" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"J. Alex Buschinelli","url":"https://alexbsec.github.io/"},"dateModified":"2026-08-22T00:00:00-03:00","datePublished":"2026-08-22T00:00:00-03:00","description":"Introduction","headline":"Flecha Dev Log #31: Shipping the Editor Experience","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/flecha-editor-packaging"},"url":"http://localhost:4000/flecha-editor-packaging"}</script>
+<!-- End Jekyll SEO tag -->
+
+</head>
+
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    
+    <div style="display: flex; justify-content: center; align-items: center; text-decoration: none;">
+      <a href="/" style="display: flex; align-items: center; text-decoration: none;">
+          <img src="/assets/cecil.gif" alt="Cecil Daemon" style="margin-right: 20px;"/>
+          
+          
+          <h1>cecil@celestial:/flecha-editor-packaging $</h1>
+      
+      </a>
+  </div>
+  <br>
+    </a>
+    <div class="header-links">
+      <a href="/"><h2 class="header-link">Home</h2></a>
+<a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+<a href="/atom.xml"><h2 class="header-link">RSS</h2></a>
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Flecha Dev Log #31: Shipping the Editor Experience</h2>
+  <time datetime="2026-08-22T00:00:00-03:00" class="by-line">22 Aug 2026</time>
+  <p>Estimated read time: 2 minutes</p>
+  <h1 id="introduction"><a href="#intro"></a>Introduction</h1>
+
+<p>Hi folks!</p>
+
+<p>Syntax highlighting often begins as a small grammar checked into the repository. That is enough for its author, who knows where it lives and how to wire it into an editor.</p>
+
+<p>It is not enough for somebody who downloaded a compiler archive and wants <code class="language-plaintext highlighter-rouge">.fl</code> files to look like Flecha files.</p>
+
+<p>We turned editor support into versioned, tested release artifacts for Visual Studio Code and Neovim.</p>
+
+<h1 id="a-real-vsix"><a href="#a-real-vsix"></a>A real VSIX</h1>
+
+<p>Visual Studio Code support is packaged as <code class="language-plaintext highlighter-rouge">flecha-language-VERSION.vsix</code>. It can be checksum-verified and installed directly:</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sha256sum</span> <span class="nt">-c</span> SHA256SUMS <span class="nt">--ignore-missing</span>
+code <span class="nt">--install-extension</span> flecha-language-VERSION.vsix
+</code></pre></div></div>
+
+<p>The extension supplies file detection, syntax highlighting, comments, brackets, and indentation. Its stable identity is <code class="language-plaintext highlighter-rouge">flecha.flecha-language</code>, so installing a newer VSIX upgrades the same extension instead of creating a sibling.</p>
+
+<p>The packaging command uses a locked Node dependency graph and a pinned official VSIX builder. It validates the extension identity and version, checks the installation manifest and grammar, and ensures development-only files do not leak into the archive.</p>
+
+<p>The release workflow also checks that the extension version matches the release tag. A Flecha archive and its editor package should tell the same version story.</p>
+
+<h1 id="neovim-as-a-native-package"><a href="#neovim-as-a-native-package"></a>Neovim as a native package</h1>
+
+<p>Neovim support ships inside the compiler archive at <code class="language-plaintext highlighter-rouge">share/flecha/editors/neovim</code>. Copying it into a normal <code class="language-plaintext highlighter-rouge">pack/*/start</code> directory makes it load as a native package:</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">mkdir</span> <span class="nt">-p</span> ~/.local/share/nvim/site/pack/flecha/start
+<span class="nb">cp</span> <span class="nt">-R</span> /path/to/flecha/share/flecha/editors/neovim <span class="se">\</span>
+  ~/.local/share/nvim/site/pack/flecha/start/flecha.nvim
+</code></pre></div></div>
+
+<p>Open a <code class="language-plaintext highlighter-rouge">.fl</code> file and <code class="language-plaintext highlighter-rouge">:set filetype?</code> should report <code class="language-plaintext highlighter-rouge">flecha</code>. Filetype detection, syntax groups, buffer settings, and indentation are exercised headlessly in tests.</p>
+
+<p>For a development checkout, a symbolic link points Neovim directly at the grammar. For a release, copying the packaged directory keeps the installation tied to that toolchain version.</p>
+
+<h1 id="highlighting-must-follow-the-language"><a href="#highlighting-must-follow-the-language"></a>Highlighting must follow the language</h1>
+
+<p>New syntax is not finished when only the compiler recognizes it.</p>
+
+<p>Generic parameters, enum declarations, <code class="language-plaintext highlighter-rouge">match</code> arms, ownership annotations, imports, and borrowed-result contracts all need editor grammar updates. Otherwise valid code looks broken precisely when users are trying to learn the feature.</p>
+
+<p>Treating editor tests as part of the main suite catches drift between parser syntax and the tools people stare at all day.</p>
+
+<h1 id="clear-limits"><a href="#clear-limits"></a>Clear limits</h1>
+
+<p>These packages provide syntax and editing basics; they are not a language server. There is no claim of semantic completion, rename, project-wide references, or inline diagnostics.</p>
+
+<p>That distinction matters. A small reliable editor integration is more useful than a package whose description promises intelligence it does not contain.</p>
+
+<h1 id="conclusion"><a href="#conclusion"></a>Conclusion</h1>
+
+<p>Editor support became part of the distribution rather than a repository curiosity. Visual Studio Code gets a verified VSIX; Neovim gets a tested runtime package; both travel with install, upgrade, verification, and removal instructions.</p>
+
+<p>A language starts feeling real long before self-hosting. Sometimes it happens the first time a source file opens with the right name, indentation, and colors without a private setup ritual.</p>
+
+<p>I hope you liked this write-up and learned something new. As always, don’t forget to do your <strong>research!</strong></p>
+
+<p><a href="/">Go back</a></p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-nc/3.0/deed.en_US">
+    <span>
+        <b>Alex Buschinelli</b>
+    </span>
+    
+    <span>© 2026</span>
+  </a>
+</footer>
+
+  
+</body>
+
+</html>

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-GX2L7MWQLN"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-GX2L7MWQLN');
+</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+          .MathJax {
+  font-size: 180%; /* Adjust the percentage as needed */
+}
+  </style>
+
+  <title>Flecha Dev Log #26: Enums Are Real Types</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <script defer src="/assets/flecha-highlight.js"></script>
+  
+  <link href="/atom.xml" type="application/atom+xml" rel="alternate" title="ATOM Feed" /> <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Flecha Dev Log #26: Enums Are Real Types | Cecil Daemon’s Wish</title>
+<meta name="generator" content="Jekyll v4.3.3" />
+<meta property="og:title" content="Flecha Dev Log #26: Enums Are Real Types" />
+<meta name="author" content="J. Alex Buschinelli" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Introduction" />
+<meta property="og:description" content="Introduction" />
+<link rel="canonical" href="http://localhost:4000/flecha-enums-with-real-types" />
+<meta property="og:url" content="http://localhost:4000/flecha-enums-with-real-types" />
+<meta property="og:site_name" content="Cecil Daemon’s Wish" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-03-07T00:00:00-03:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Flecha Dev Log #26: Enums Are Real Types" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"J. Alex Buschinelli","url":"https://alexbsec.github.io/"},"dateModified":"2026-03-07T00:00:00-03:00","datePublished":"2026-03-07T00:00:00-03:00","description":"Introduction","headline":"Flecha Dev Log #26: Enums Are Real Types","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/flecha-enums-with-real-types"},"url":"http://localhost:4000/flecha-enums-with-real-types"}</script>
+<!-- End Jekyll SEO tag -->
+
+</head>
+
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    
+    <div style="display: flex; justify-content: center; align-items: center; text-decoration: none;">
+      <a href="/" style="display: flex; align-items: center; text-decoration: none;">
+          <img src="/assets/cecil.gif" alt="Cecil Daemon" style="margin-right: 20px;"/>
+          
+          
+          <h1>cecil@celestial:/flecha-enums-with-real-types $</h1>
+      
+      </a>
+  </div>
+  <br>
+    </a>
+    <div class="header-links">
+      <a href="/"><h2 class="header-link">Home</h2></a>
+<a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+<a href="/atom.xml"><h2 class="header-link">RSS</h2></a>
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Flecha Dev Log #26: Enums Are Real Types</h2>
+  <time datetime="2026-03-07T00:00:00-03:00" class="by-line">07 Mar 2026</time>
+  <p>Estimated read time: 2 minutes</p>
+  <h1 id="introduction"><a href="#intro"></a>Introduction</h1>
+
+<p>Hi folks!</p>
+
+<p>Named integer constants are useful until the compiler forgets what they mean. A token kind and a connection state may both fit in a byte, but that does not make them interchangeable.</p>
+
+<p>Flecha enums are nominal, allocation-free scalar types. They retain the efficiency of an integer representation while giving the type checker a closed vocabulary of values.</p>
+
+<h1 id="declaration-and-representation"><a href="#declaration-and-representation"></a>Declaration and representation</h1>
+
+<p>An enum may choose its backing integer and discriminants:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">export enum TokenKind: u16 {
+    default NoToken = 0,
+    Identifier,
+    Number = 10,
+    End,
+}</code></pre></div></div>
+
+<p>The backing type defaults to <code class="language-plaintext highlighter-rouge">u32</code>. Implicit discriminants begin at zero and continue from the preceding value; explicit values can create meaningful gaps. Signed backing types permit negative values.</p>
+
+<p>The compiler checks that each value fits its backing type and that both names and discriminants are unique. The enum lowers to its integer representation, but that representation does not erase the declared type.</p>
+
+<p><code class="language-plaintext highlighter-rouge">TokenKind.Identifier</code> and a variant from another enum remain incompatible even when both happen to equal one. There are no automatic integer-to-enum or enum-to-integer conversions.</p>
+
+<h1 id="qualified-values"><a href="#qualified-values"></a>Qualified values</h1>
+
+<p>The enum name is a type, not a value. Variants stay qualified:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">TokenKind kind = TokenKind.Identifier;
+
+if kind == TokenKind.End {
+    stdoutln("done");
+}</code></pre></div></div>
+
+<p>Qualification makes the domain visible at each use and avoids filling module scope with generic names such as <code class="language-plaintext highlighter-rouge">End</code>, <code class="language-plaintext highlighter-rouge">Open</code>, or <code class="language-plaintext highlighter-rouge">None</code>.</p>
+
+<p>Equality and strict equality work between values of the same enum. Arithmetic, ordering, increment, implicit truth tests, and cross-enum comparison do not. An enum describes alternatives; it is not an integer wearing a label.</p>
+
+<h1 id="a-semantic-default"><a href="#a-semantic-default"></a>A semantic default</h1>
+
+<p>At most one variant can be marked <code class="language-plaintext highlighter-rouge">default</code>. That variant gives contextual <code class="language-plaintext highlighter-rouge">none</code> a useful meaning:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">enum State: u8 {
+    Off,
+    default Unknown = 7,
+    On,
+}
+
+State state = none;       // State.Unknown
+[3]State states = none;   // every element is State.Unknown
+</code></pre></div></div>
+
+<p>The default is semantic, so it does not need discriminant zero. Arrays and structures initialize the actual selected value rather than clearing bytes and assuming the result is meaningful.</p>
+
+<p>Without a default variant, contextual <code class="language-plaintext highlighter-rouge">none</code> is rejected. A variable can still be declared for later assignment, and definite-assignment analysis prevents premature reads.</p>
+
+<h1 id="behavior-without-boxing"><a href="#behavior-without-boxing"></a>Behavior without boxing</h1>
+
+<p>Enums can have out-of-line methods using the same receiver model as structures:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">bool State::is_on(&amp;const self) {
+    return *self == State.On;
+}
+
+void State::turn_on(&amp;self) {
+    *self = State.On;
+}</code></pre></div></div>
+
+<p>Read-only, mutable, pointer, static, private, and generic methods follow the language’s existing rules. No object header or heap allocation is introduced; the value is still the backing scalar at runtime.</p>
+
+<p>Enums may be stored in structures, tuples, fixed arrays, generic containers, references, and raw pointers. Their initialization and destruction remain compiler-defined because scalar enums have no custom lifecycle hooks.</p>
+
+<h1 id="conclusion"><a href="#conclusion"></a>Conclusion</h1>
+
+<p>Enums close a gap between representation and meaning. The machine gets a compact integer; the programmer gets a distinct type, qualified values, checked defaults, and methods.</p>
+
+<p>It is a small feature on the surface, but it gives many APIs a much sharper vocabulary.</p>
+
+<p>I hope you liked this write-up and learned something new. As always, don’t forget to do your <strong>research!</strong></p>
+
+<p><a href="/">Go back</a></p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-nc/3.0/deed.en_US">
+    <span>
+        <b>Alex Buschinelli</b>
+    </span>
+    
+    <span>© 2026</span>
+  </a>
+</footer>
+
+  
+</body>
+
+</html>

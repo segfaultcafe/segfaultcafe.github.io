@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-GX2L7MWQLN"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-GX2L7MWQLN');
+</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+          .MathJax {
+  font-size: 180%; /* Adjust the percentage as needed */
+}
+  </style>
+
+  <title>Flecha Dev Log #3: Building the Boundary Before the Backend</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <script defer src="/assets/flecha-highlight.js"></script>
+  
+  <link href="/atom.xml" type="application/atom+xml" rel="alternate" title="ATOM Feed" /> <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Flecha Dev Log #3: Building the Boundary Before the Backend | Cecil Daemon’s Wish</title>
+<meta name="generator" content="Jekyll v4.3.3" />
+<meta property="og:title" content="Flecha Dev Log #3: Building the Boundary Before the Backend" />
+<meta name="author" content="J. Alex Buschinelli" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Introduction" />
+<meta property="og:description" content="Introduction" />
+<link rel="canonical" href="http://localhost:4000/flecha-building-a-bound-ir" />
+<meta property="og:url" content="http://localhost:4000/flecha-building-a-bound-ir" />
+<meta property="og:site_name" content="Cecil Daemon’s Wish" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-06-23T00:00:00-03:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Flecha Dev Log #3: Building the Boundary Before the Backend" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"J. Alex Buschinelli","url":"https://alexbsec.github.io/"},"dateModified":"2024-06-23T00:00:00-03:00","datePublished":"2024-06-23T00:00:00-03:00","description":"Introduction","headline":"Flecha Dev Log #3: Building the Boundary Before the Backend","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/flecha-building-a-bound-ir"},"url":"http://localhost:4000/flecha-building-a-bound-ir"}</script>
+<!-- End Jekyll SEO tag -->
+
+</head>
+
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    
+    <div style="display: flex; justify-content: center; align-items: center; text-decoration: none;">
+      <a href="/" style="display: flex; align-items: center; text-decoration: none;">
+          <img src="/assets/cecil.gif" alt="Cecil Daemon" style="margin-right: 20px;"/>
+          
+          
+          <h1>cecil@celestial:/flecha-building-a-bound-ir $</h1>
+      
+      </a>
+  </div>
+  <br>
+    </a>
+    <div class="header-links">
+      <a href="/"><h2 class="header-link">Home</h2></a>
+<a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+<a href="/atom.xml"><h2 class="header-link">RSS</h2></a>
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Flecha Dev Log #3: Building the Boundary Before the Backend</h2>
+  <time datetime="2024-06-23T00:00:00-03:00" class="by-line">23 Jun 2024</time>
+  <p>Estimated read time: 4 minutes</p>
+  <h1 id="introduction"><a href="#intro"></a>Introduction</h1>
+
+<p>Hi folks!</p>
+
+<p>Flecha could now parse a file and determine what its names and expressions meant. The obvious next move was to start generating machine code directly from the AST.</p>
+
+<p>We decided not to.</p>
+
+<p>That extra step is one of the most important architectural decisions in the compiler: a typed, bound intermediate representation between semantic analysis and code generation.</p>
+
+<p>Why add another tree when we already had one? Because the AST answers, “what did the programmer write?” The backend needs, “what operation must the machine perform?”</p>
+
+<h1 id="syntax-is-not-a-backend-contract"><a href="#syntax-is-not-a-backend-contract"></a>Syntax is not a backend contract</h1>
+
+<p>Take a simple program:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">i32 add(i32 left, i32 right) {
+    return left + right;
+}
+
+i32 main() {
+    answer := add(20, 22);
+    return answer;
+}</code></pre></div></div>
+
+<p>In the AST, <code class="language-plaintext highlighter-rouge">answer</code> is a name expression and <code class="language-plaintext highlighter-rouge">add</code> is another name expression followed by call syntax. The backend should not perform scope lookup or infer the result type again.</p>
+
+<p>The lowerer converts valid syntax into a <code class="language-plaintext highlighter-rouge">BoundProgram</code>. In that program:</p>
+
+<ul>
+  <li>every expression has a resolved semantic type;</li>
+  <li>every name points directly to its symbol;</li>
+  <li>every call points directly to its function symbol;</li>
+  <li>every node retains its source range;</li>
+  <li>frontend errors prevent lowering altogether.</li>
+</ul>
+
+<p>The resulting representation can say something close to:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>function add(i32 left, i32 right) -&gt; i32
+function main() -&gt; i32
+  local answer: i32 = (call add 20:i32 22:i32)
+  return load answer
+</code></pre></div></div>
+
+<p>This dump is not Flecha syntax and is not a serialization format. It is a deterministic window into what the compiler believes the program means.</p>
+
+<h1 id="lowering-removes-choices"><a href="#lowering-removes-choices"></a>Lowering removes choices</h1>
+
+<p>Source languages often provide multiple ways to express related control flow. Backends are easier to verify when they receive fewer shapes.</p>
+
+<p>Flecha had <code class="language-plaintext highlighter-rouge">if</code>, <code class="language-plaintext highlighter-rouge">else if</code>, <code class="language-plaintext highlighter-rouge">else</code>, and an experimental <code class="language-plaintext highlighter-rouge">also</code> clause. Instead of teaching every future backend all four surface forms, the lowerer normalized them.</p>
+
+<p><code class="language-plaintext highlighter-rouge">else if</code> becomes an <code class="language-plaintext highlighter-rouge">if</code> nested inside the previous alternative block. An <code class="language-plaintext highlighter-rouge">also</code> clause becomes a conditional appended to the successful body of its owner.</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">if ready {
+    result = 40;
+} also result == 40 {
+    result = result + 2;
+} else {
+    result = 0;
+}</code></pre></div></div>
+
+<p>The important rule is that <code class="language-plaintext highlighter-rouge">also</code> runs only if its owning branch ran. Lowering preserves that rule using ordinary nested conditionals. The backend does not need a special theory of <code class="language-plaintext highlighter-rouge">also</code>.</p>
+
+<p>This gave us a useful principle:</p>
+
+<blockquote>
+  <p>Surface syntax can be expressive. The IR should be explicit.</p>
+</blockquote>
+
+<h1 id="a-clean-failure-boundary"><a href="#a-clean-failure-boundary"></a>A clean failure boundary</h1>
+
+<p>The lowerer accepts the AST, semantic model, and diagnostic bag. If the frontend has errors, it produces no bound program.</p>
+
+<p>That decision sounds strict, but it keeps later stages honest. Code generation never receives an unknown name with an “error” type and tries to make something out of it. The frontend owns source recovery. The backend owns valid, bound programs.</p>
+
+<p>Each stage therefore has a clear promise:</p>
+
+<ol>
+  <li>The parser produces recoverable syntax.</li>
+  <li>Semantic analysis attaches meaning and diagnostics.</li>
+  <li>Lowering accepts only valid meaning.</li>
+  <li>Code generation accepts only the smaller bound language.</li>
+</ol>
+
+<p>When a compiler grows, those boundaries matter much more than the number of classes in any single pass.</p>
+
+<h1 id="lifetime-of-the-ir"><a href="#lifetime-of-the-ir"></a>Lifetime of the IR</h1>
+
+<p>The bound IR does not duplicate every symbol. It keeps non-owning references to symbols owned by the semantic model. That makes symbol identity stable across semantic analysis and lowering, but it creates an explicit lifetime order:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>AST → SemanticModel → BoundProgram
+</code></pre></div></div>
+
+<p>The AST must remain alive while AST-keyed semantic queries are used. The semantic model must remain alive while the bound program refers to its symbols.</p>
+
+<p>Rather than hiding that dependency, we documented it and tested it. Predictable internal ownership is what lets later passes be aggressive without becoming fragile.</p>
+
+<h1 id="what-became-possible"><a href="#what-became-possible"></a>What became possible</h1>
+
+<p>The first bound IR covered functions, blocks, local declarations, expression statements, returns, conditionals, literals, variables, function references, unary and binary operations, assignments, and direct calls.</p>
+
+<p>That was almost exactly the subset needed for an LLVM proof of concept.</p>
+
+<p>More importantly, the backend could now be written without importing parser logic. It would not resolve names, decide types, or understand source-level <code class="language-plaintext highlighter-rouge">else if</code>. It would translate a verified, typed program into another verified representation.</p>
+
+<p>That separation keeps the backend focused on translation instead of source-language interpretation.</p>
+
+<h1 id="conclusion"><a href="#conclusion"></a>Conclusion</h1>
+
+<p>Adding an IR can feel like delaying the exciting part. We had a valid program and wanted native code. Instead, we built another representation.</p>
+
+<p>But this is the step that makes the backend small enough to reason about. The source language can grow while LLVM continues to consume a deliberately constrained contract.</p>
+
+<p><a href="/">Go back</a></p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-nc/3.0/deed.en_US">
+    <span>
+        <b>Alex Buschinelli</b>
+    </span>
+    
+    <span>© 2026</span>
+  </a>
+</footer>
+
+  
+</body>
+
+</html>

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-GX2L7MWQLN"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-GX2L7MWQLN');
+</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+          .MathJax {
+  font-size: 180%; /* Adjust the percentage as needed */
+}
+  </style>
+
+  <title>Flecha Dev Log #6: Making Numeric Conversions Explicit</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <script defer src="/assets/flecha-highlight.js"></script>
+  
+  <link href="/atom.xml" type="application/atom+xml" rel="alternate" title="ATOM Feed" /> <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Flecha Dev Log #6: Making Numeric Conversions Explicit | Cecil Daemon’s Wish</title>
+<meta name="generator" content="Jekyll v4.3.3" />
+<meta property="og:title" content="Flecha Dev Log #6: Making Numeric Conversions Explicit" />
+<meta name="author" content="J. Alex Buschinelli" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Introduction" />
+<meta property="og:description" content="Introduction" />
+<link rel="canonical" href="http://localhost:4000/flecha-explicit-numeric-conversions" />
+<meta property="og:url" content="http://localhost:4000/flecha-explicit-numeric-conversions" />
+<meta property="og:site_name" content="Cecil Daemon’s Wish" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-09-06T00:00:00-03:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Flecha Dev Log #6: Making Numeric Conversions Explicit" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"J. Alex Buschinelli","url":"https://alexbsec.github.io/"},"dateModified":"2024-09-06T00:00:00-03:00","datePublished":"2024-09-06T00:00:00-03:00","description":"Introduction","headline":"Flecha Dev Log #6: Making Numeric Conversions Explicit","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/flecha-explicit-numeric-conversions"},"url":"http://localhost:4000/flecha-explicit-numeric-conversions"}</script>
+<!-- End Jekyll SEO tag -->
+
+</head>
+
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    
+    <div style="display: flex; justify-content: center; align-items: center; text-decoration: none;">
+      <a href="/" style="display: flex; align-items: center; text-decoration: none;">
+          <img src="/assets/cecil.gif" alt="Cecil Daemon" style="margin-right: 20px;"/>
+          
+          
+          <h1>cecil@celestial:/flecha-explicit-numeric-conversions $</h1>
+      
+      </a>
+  </div>
+  <br>
+    </a>
+    <div class="header-links">
+      <a href="/"><h2 class="header-link">Home</h2></a>
+<a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+<a href="/atom.xml"><h2 class="header-link">RSS</h2></a>
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Flecha Dev Log #6: Making Numeric Conversions Explicit</h2>
+  <time datetime="2024-09-06T00:00:00-03:00" class="by-line">06 Sep 2024</time>
+  <p>Estimated read time: 3 minutes</p>
+  <h1 id="introduction"><a href="#intro"></a>Introduction</h1>
+
+<p>Hi folks!</p>
+
+<p>Flecha had integers of several widths, signed and unsigned variants, and two floating-point types. The semantic analyzer deliberately rejected arithmetic between different numeric types.</p>
+
+<p>That gave us a safe rule, but not yet a practical language.</p>
+
+<p>Real programs eventually need to turn an <code class="language-plaintext highlighter-rouge">i32</code> into an <code class="language-plaintext highlighter-rouge">i64</code>, narrow a value to <code class="language-plaintext highlighter-rouge">u8</code>, or cross the boundary between integers and floating point. If those conversions were not going to happen silently, we needed an explicit operation with precise semantics.</p>
+
+<p>Numeric casts therefore need one precise meaning through the entire compiler.</p>
+
+<h1 id="two-spellings-one-operation"><a href="#two-spellings-one-operation"></a>Two spellings, one operation</h1>
+
+<p>Flecha gained two cast spellings:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">i32 first = 32 as i32;
+i32 second = 10.cast&lt;i32&gt;;
+
+i64 wide = first.cast&lt;i64&gt;;
+u8 narrow = wide.cast&lt;u8&gt;;
+f64 decimal = narrow.cast&lt;f64&gt;;</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">value as Type</code> is concise when the conversion is part of a larger expression. <code class="language-plaintext highlighter-rouge">value.cast&lt;Type&gt;</code> is chainable and fits the member-style conversion vocabulary we expected to grow later.</p>
+
+<p>Both forms produce the same AST node and the same semantics. We did not want two conversion systems hidden behind two pieces of syntax.</p>
+
+<h1 id="a-cast-crosses-every-stage"><a href="#a-cast-crosses-every-stage"></a>A cast crosses every stage</h1>
+
+<p>Numeric casts are a perfect example of why a language feature is never “just syntax.”</p>
+
+<p>The tokenizer needed the <code class="language-plaintext highlighter-rouge">as</code> keyword. The parser needed cast precedence and postfix parsing. The AST needed a <code class="language-plaintext highlighter-rouge">CastExpression</code> containing the input expression and target type. Semantic analysis had to resolve the target and reject unsupported source-target pairs. Lowering had to preserve both types in the bound IR. Finally, LLVM code generation had to select the correct instruction.</p>
+
+<p>The tests followed the same path:</p>
+
+<ul>
+  <li>parser tests checked both spellings and chaining;</li>
+  <li>semantic tests checked legal and illegal conversions;</li>
+  <li>lowering tests checked the typed bound cast;</li>
+  <li>code-generation tests checked the LLVM behavior;</li>
+  <li>the native example verified the final exit value.</li>
+</ul>
+
+<p>This became our normal standard for language work. A feature was not finished because the parser accepted it. It was finished when the complete pipeline agreed on what it meant.</p>
+
+<h1 id="signedness-is-behavior"><a href="#signedness-is-behavior"></a>Signedness is behavior</h1>
+
+<p>Consider converting an integer to a wider integer. LLVM needs to know whether to sign-extend or zero-extend. Converting an integer to a float also depends on whether the source is signed. Converting a float back to an integer depends on the destination.</p>
+
+<p>The backend therefore selected operations using Flecha’s semantic types:</p>
+
+<ul>
+  <li>integer to integer used a width-changing cast with the source signedness;</li>
+  <li>signed integer to float used a signed conversion;</li>
+  <li>unsigned integer to float used an unsigned conversion;</li>
+  <li>float to signed or unsigned integer followed the destination signedness;</li>
+  <li>float-width changes used floating-point casts.</li>
+</ul>
+
+<p>An explicit cast is not a magic permission to forget types. It is the point where the programmer asks for a specific transformation, and the compiler must implement that transformation exactly.</p>
+
+<h1 id="why-no-implicit-numeric-promotion"><a href="#why-no-implicit-numeric-promotion"></a>Why no implicit numeric promotion?</h1>
+
+<p>Many languages automatically promote smaller integers or combine integers and floating-point values. That is convenient until the selected conversion is not the one a systems programmer expected.</p>
+
+<p>Flecha chose a simpler initial rule:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">i32 count = 10;
+i64 total = 32;
+
+// result := count + total;       // incompatible operand types
+result := count.cast&lt;i64&gt; + total;</code></pre></div></div>
+
+<p>The conversion appears exactly where information may be widened, narrowed, rounded, or reinterpreted numerically. That makes code review easier and keeps overload or promotion rules out of the first type system.</p>
+
+<p>We can always add carefully specified conveniences later. Removing an invisible conversion after users depend on it is much harder.</p>
+
+<h1 id="casts-compose"><a href="#casts-compose"></a>Casts compose</h1>
+
+<p>Because casts are expressions, they work anywhere another value works:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">i32 main() {
+    first := 32 as i32;
+    second := 10.cast&lt;i32&gt;;
+    base := first + second;
+    wide := base.cast&lt;i64&gt;;
+    narrow := wide.cast&lt;u8&gt;;
+    decimal := narrow.cast&lt;f64&gt;;
+    result := (decimal as f32) as i32;
+    return result;
+}</code></pre></div></div>
+
+<p>This program travels through several representations and still returns <code class="language-plaintext highlighter-rouge">42</code>. It is small, but it proves that parsing, semantic validation, lowering, and native code generation agree across the entire chain.</p>
+
+<h1 id="conclusion"><a href="#conclusion"></a>Conclusion</h1>
+
+<p>Numeric casts gave Flecha an escape from strict type equality without weakening the rule that conversions should be visible.</p>
+
+<p>They also demonstrate a durable pattern: offer concise source syntax, lower it to one semantic operation, and keep target-specific instruction details in the backend.</p>
+
+<p><a href="/">Go back</a></p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-nc/3.0/deed.en_US">
+    <span>
+        <b>Alex Buschinelli</b>
+    </span>
+    
+    <span>© 2026</span>
+  </a>
+</footer>
+
+  
+</body>
+
+</html>

@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-GX2L7MWQLN"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-GX2L7MWQLN');
+</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+          .MathJax {
+  font-size: 180%; /* Adjust the percentage as needed */
+}
+  </style>
+
+  <title>Flecha Dev Log #16: Defer and Every Way Out of a Scope</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <script defer src="/assets/flecha-highlight.js"></script>
+  
+  <link href="/atom.xml" type="application/atom+xml" rel="alternate" title="ATOM Feed" /> <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Flecha Dev Log #16: Defer and Every Way Out of a Scope | Cecil Daemon’s Wish</title>
+<meta name="generator" content="Jekyll v4.3.3" />
+<meta property="og:title" content="Flecha Dev Log #16: Defer and Every Way Out of a Scope" />
+<meta name="author" content="J. Alex Buschinelli" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Introduction" />
+<meta property="og:description" content="Introduction" />
+<link rel="canonical" href="http://localhost:4000/flecha-defer-and-every-way-out" />
+<meta property="og:url" content="http://localhost:4000/flecha-defer-and-every-way-out" />
+<meta property="og:site_name" content="Cecil Daemon’s Wish" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-07-26T00:00:00-03:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Flecha Dev Log #16: Defer and Every Way Out of a Scope" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"J. Alex Buschinelli","url":"https://alexbsec.github.io/"},"dateModified":"2025-07-26T00:00:00-03:00","datePublished":"2025-07-26T00:00:00-03:00","description":"Introduction","headline":"Flecha Dev Log #16: Defer and Every Way Out of a Scope","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/flecha-defer-and-every-way-out"},"url":"http://localhost:4000/flecha-defer-and-every-way-out"}</script>
+<!-- End Jekyll SEO tag -->
+
+</head>
+
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    
+    <div style="display: flex; justify-content: center; align-items: center; text-decoration: none;">
+      <a href="/" style="display: flex; align-items: center; text-decoration: none;">
+          <img src="/assets/cecil.gif" alt="Cecil Daemon" style="margin-right: 20px;"/>
+          
+          
+          <h1>cecil@celestial:/flecha-defer-and-every-way-out $</h1>
+      
+      </a>
+  </div>
+  <br>
+    </a>
+    <div class="header-links">
+      <a href="/"><h2 class="header-link">Home</h2></a>
+<a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+<a href="/atom.xml"><h2 class="header-link">RSS</h2></a>
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Flecha Dev Log #16: Defer and Every Way Out of a Scope</h2>
+  <time datetime="2025-07-26T00:00:00-03:00" class="by-line">26 Jul 2025</time>
+  <p>Estimated read time: 3 minutes</p>
+  <h1 id="introduction"><a href="#intro"></a>Introduction</h1>
+
+<p>Hi folks!</p>
+
+<p>Resource cleanup is easy when a function has one exit at the bottom. Flecha had returns, nested blocks, loops, <code class="language-plaintext highlighter-rouge">break</code>, <code class="language-plaintext highlighter-rouge">proceed</code>, and named jumps.</p>
+
+<p>We wanted a way to register cleanup beside the operation that needed it and trust the compiler to execute it on every ordinary path out.</p>
+
+<p>Deferred direct calls combine precise capture rules, borrow integration, and cleanup blocks for all scope-exit edges.</p>
+
+<h1 id="capture-now-call-later"><a href="#capture-now-call-later"></a>Capture now, call later</h1>
+
+<p><code class="language-plaintext highlighter-rouge">defer</code> accepts a direct function call:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">void report(i32 value) {
+    stdoutln(value);
+}
+
+i32 main() {
+    i32 value = 10;
+    defer report(value);
+    value = 20;
+    return 42;
+}</code></pre></div></div>
+
+<p>The program prints <code class="language-plaintext highlighter-rouge">10</code>.</p>
+
+<p>Arguments evaluate once, left to right, when execution reaches the defer statement. Their side effects happen immediately. The outer function call waits until the current lexical scope exits.</p>
+
+<p>That decision avoids a dangerous ambiguity. “Run this expression later” would allow every referenced local to change—or disappear—before evaluation. Flecha instead captures concrete argument values now.</p>
+
+<h1 id="reverse-order-per-scope"><a href="#reverse-order-per-scope"></a>Reverse order per scope</h1>
+
+<p>Each scope executes deferred calls in reverse registration order:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">{
+    defer report(1);
+    defer report(2);
+} // prints 2, then 1</code></pre></div></div>
+
+<p>Inner scopes drain before outer scopes. Registration occurs only if execution reaches the statement, and a loop may register the same call site multiple times.</p>
+
+<p>This gives cleanup the familiar stack discipline: the newest acquired responsibility is handled first.</p>
+
+<h1 id="different-values-need-different-captures"><a href="#different-values-need-different-captures"></a>Different values need different captures</h1>
+
+<p>Scalars, raw pointers, and fixed arrays capture their current values.</p>
+
+<p>Owning strings and string views receive independent owned byte snapshots. That capture can allocate, but it prevents a deferred view from depending on a string that changes or dies before the call.</p>
+
+<p>References and slices cannot be copied into ownership. They capture borrowed handles, so their loans stay active until the scope exit executes the deferred call.</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">void set(&amp;i32 target) {
+    *target = 42;
+}
+
+i32 main() {
+    i32 answer = 0;
+    {
+        defer set(&amp;answer);
+    }
+    return answer;
+}</code></pre></div></div>
+
+<p>The exclusive borrow prevents conflicting access while the call is pending and ends when the block drains its defer stack.</p>
+
+<h1 id="every-ordinary-exit"><a href="#every-ordinary-exit"></a>Every ordinary exit</h1>
+
+<p>Deferred calls run on:</p>
+
+<ul>
+  <li>normal fallthrough;</li>
+  <li><code class="language-plaintext highlighter-rouge">return</code>;</li>
+  <li><code class="language-plaintext highlighter-rouge">break</code>;</li>
+  <li><code class="language-plaintext highlighter-rouge">proceed</code>;</li>
+  <li><code class="language-plaintext highlighter-rouge">jumpto</code> edges leaving the scope.</li>
+</ul>
+
+<p>A return expression evaluates before cleanup. Deferred code cannot change the value already selected for return.</p>
+
+<p>In a counted loop, the body scope cleans up before the update expression runs, including when <code class="language-plaintext highlighter-rouge">proceed</code> is used. A jump that stays inside the same scope keeps pending registrations; a backward jump can add another one.</p>
+
+<p>Traps and immediate process termination do not unwind. If argument evaluation traps, the call is never registered. If one deferred callee traps, later pending calls do not execute. Flecha did not quietly introduce exceptions through cleanup.</p>
+
+<h1 id="defer-is-not-ownership"><a href="#defer-is-not-ownership"></a>Defer is not ownership</h1>
+
+<p>Raw pointers retain their unsafe obligations. <code class="language-plaintext highlighter-rouge">defer free(pointer)</code> could eventually be a convenient cleanup, but defer alone did not prove that the pointer came from an allocation, that it was still live, or that another free was not pending.</p>
+
+<p>Scheduling a call and proving resource ownership are different problems.</p>
+
+<p>This separation kept defer generally useful while leaving allocation tracking to a dedicated analysis.</p>
+
+<h1 id="how-it-lowers"><a href="#how-it-lowers"></a>How it lowers</h1>
+
+<p>Each active scope receives a linked stack of captured call records. Registration records are allocated in function stack storage and tagged by call site. Scope-exit cleanup blocks drain them in reverse order and restore the previous stack.</p>
+
+<p>The queue itself requires no heap allocator. Repeated registration does consume stack proportional to the number and size of pending captures, so an unbounded loop can exhaust the stack.</p>
+
+<p>The control-flow graph records argument evaluation at registration. Synthetic capture symbols preserve borrow origins until the matching exit edge. LLVM cleanup blocks handle non-local jumps between scopes.</p>
+
+<h1 id="conclusion"><a href="#conclusion"></a>Conclusion</h1>
+
+<p><code class="language-plaintext highlighter-rouge">defer</code> looks like one keyword. Its behavior requires defined capture timing, value-specific snapshot rules, borrow lifetimes, loop behavior, jump behavior, destruction ordering, and a no-unwind trap policy.</p>
+
+<p>That is exactly why language features are so interesting: the syntax is usually the smallest part.</p>
+
+<p><a href="/">Go back</a></p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-nc/3.0/deed.en_US">
+    <span>
+        <b>Alex Buschinelli</b>
+    </span>
+    
+    <span>© 2026</span>
+  </a>
+</footer>
+
+  
+</body>
+
+</html>

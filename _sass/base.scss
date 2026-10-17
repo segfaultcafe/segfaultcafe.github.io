@@ -171,6 +171,19 @@ code.highlighter-rouge {
   border-radius: 2px;
 }
 
+/* Flecha is not part of Rouge yet, so its blocks are highlighted in the
+   browser by assets/flecha-highlight.js. Keep these colors aligned with the
+   existing Base16 theme used by the other language lexers. */
+code.language-flecha {
+  .fl-comment { color: $grey; }
+  .fl-keyword { color: $bouquet; }
+  .fl-type { color: $raw-sienna; }
+  .fl-literal, .fl-number { color: $chelsea-cucumber; }
+  .fl-string { color: $chelsea-cucumber; }
+  .fl-builtin, .fl-operator { color: $rajah; }
+  .fl-function, .fl-label { color: $hippie-blue; }
+}
+
 table {
   width: 100%;
   margin: 0 0 20px 0;

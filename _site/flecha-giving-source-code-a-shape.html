@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-GX2L7MWQLN"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-GX2L7MWQLN');
+</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+          .MathJax {
+  font-size: 180%; /* Adjust the percentage as needed */
+}
+  </style>
+
+  <title>Flecha Dev Log #1: Giving Source Code a Shape</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <script defer src="/assets/flecha-highlight.js"></script>
+  
+  <link href="/atom.xml" type="application/atom+xml" rel="alternate" title="ATOM Feed" /> <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Flecha Dev Log #1: Giving Source Code a Shape | Cecil Daemon’s Wish</title>
+<meta name="generator" content="Jekyll v4.3.3" />
+<meta property="og:title" content="Flecha Dev Log #1: Giving Source Code a Shape" />
+<meta name="author" content="J. Alex Buschinelli" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Introduction" />
+<meta property="og:description" content="Introduction" />
+<link rel="canonical" href="http://localhost:4000/flecha-giving-source-code-a-shape" />
+<meta property="og:url" content="http://localhost:4000/flecha-giving-source-code-a-shape" />
+<meta property="og:site_name" content="Cecil Daemon’s Wish" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-04-22T00:00:00-03:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Flecha Dev Log #1: Giving Source Code a Shape" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"J. Alex Buschinelli","url":"https://alexbsec.github.io/"},"dateModified":"2024-04-22T00:00:00-03:00","datePublished":"2024-04-22T00:00:00-03:00","description":"Introduction","headline":"Flecha Dev Log #1: Giving Source Code a Shape","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/flecha-giving-source-code-a-shape"},"url":"http://localhost:4000/flecha-giving-source-code-a-shape"}</script>
+<!-- End Jekyll SEO tag -->
+
+</head>
+
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    
+    <div style="display: flex; justify-content: center; align-items: center; text-decoration: none;">
+      <a href="/" style="display: flex; align-items: center; text-decoration: none;">
+          <img src="/assets/cecil.gif" alt="Cecil Daemon" style="margin-right: 20px;"/>
+          
+          
+          <h1>cecil@celestial:/flecha-giving-source-code-a-shape $</h1>
+      
+      </a>
+  </div>
+  <br>
+    </a>
+    <div class="header-links">
+      <a href="/"><h2 class="header-link">Home</h2></a>
+<a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+<a href="/atom.xml"><h2 class="header-link">RSS</h2></a>
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Flecha Dev Log #1: Giving Source Code a Shape</h2>
+  <time datetime="2024-04-22T00:00:00-03:00" class="by-line">22 Apr 2024</time>
+  <p>Estimated read time: 4 minutes</p>
+  <h1 id="introduction"><a href="#intro"></a>Introduction</h1>
+
+<p>Hi folks!</p>
+
+<p>There is a moment at the beginning of every compiler project when the language exists mostly in our heads. We can describe the syntax, argue about types, and write small examples, but the compiler still sees a file as nothing more than characters.</p>
+
+<p>Flecha had reached that moment. We already had a tokenizer producing tokens. The next question was deceptively simple: <strong>what shape should a Flecha program have inside the compiler?</strong></p>
+
+<p>The parser and abstract syntax tree are the point where those tokens begin to represent a program.</p>
+
+<p>Let’s jump right into it!</p>
+
+<h1 id="tokens-are-not-a-program"><a href="#tokens-are-not-a-program"></a>Tokens are not a program</h1>
+
+<p>Suppose we want to compile this:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">i32 answer = 40 + 2;</code></pre></div></div>
+
+<p>The tokenizer can recognize a type, a name, an assignment operator, two numbers, an addition operator, and a semicolon. That is useful, but it does not tell the rest of the compiler that <code class="language-plaintext highlighter-rouge">40 + 2</code> initializes <code class="language-plaintext highlighter-rouge">answer</code>.</p>
+
+<p>We needed an abstract syntax tree, or AST: a representation of the program’s grammatical structure. A declaration owns an initializer, a binary expression owns its operands, and every node knows where it came from in the source file.</p>
+
+<p>That final part matters. It is tempting to store only the information needed to execute the program. But when something is wrong, a compiler must point back to the exact piece of source that caused it. Source locations are not diagnostic decoration added at the end; they have to travel with the program from the beginning.</p>
+
+<h1 id="the-first-parser"><a href="#the-first-parser"></a>The first parser</h1>
+
+<p>The initial parser introduced a small set of operations that still describe the rhythm of a recursive-descent parser:</p>
+
+<ul>
+  <li>check the current token;</li>
+  <li>match it and advance when it is the expected kind;</li>
+  <li>consume a required token or report an error;</li>
+  <li>parse the next expression according to the grammar.</li>
+</ul>
+
+<p>The first expression parser recognized literals and names. That sounds tiny—and it was—but it established the direction. The parser would produce nodes, not execute behavior. Later compiler stages could ask what a node meant without reopening the original token stream.</p>
+
+<p>We also made the parser own its progress through the tokens. <code class="language-plaintext highlighter-rouge">NextToken</code> stopped being part of the tokenizer’s public interface. Tokenization produces a complete sequence; parsing consumes that sequence according to grammar. Keeping those jobs separate prevented the parser from reaching backward into lexer state.</p>
+
+<h1 id="an-ast-is-an-ownership-problem"><a href="#an-ast-is-an-ownership-problem"></a>An AST is an ownership problem</h1>
+
+<p>An AST is a tree of dynamically allocated objects. That immediately raises a very C++ question: who destroys them?</p>
+
+<p>The early node model included source locations, types, values, variables, memory nodes, pointer nodes, and expression nodes. Tests did not only check that fields contained the right data. They also deleted complete nodes and ran with leak and use-after-free detection enabled.</p>
+
+<p>That was an architectural decision disguised as test plumbing. A compiler creates thousands of small objects while processing a file. If ownership is ambiguous at the AST level, every later feature multiplies the ambiguity.</p>
+
+<p>The model would continue evolving toward move-only trees and explicit owners, but the rule was already becoming clear:</p>
+
+<blockquote>
+  <p>Every compiler object needs one obvious owner, while references between stages should be deliberately non-owning.</p>
+</blockquote>
+
+<p>That rule eventually reached symbols, scopes, semantic models, and the lowering IR. It started here, when the tree was still small enough to understand completely.</p>
+
+<h1 id="syntax-is-allowed-to-change"><a href="#syntax-is-allowed-to-change"></a>Syntax is allowed to change</h1>
+
+<p>Some of the earliest AST tests still contained experimental spellings such as <code class="language-plaintext highlighter-rouge">int!</code>. Those tests are useful fossils. They remind us that building a language is not the same thing as protecting every early spelling forever.</p>
+
+<p>What mattered in this milestone was not whether one type token survived. It was that types had a dedicated representation, source ranges survived parsing, and expressions became a structure other passes could consume.</p>
+
+<p>We were choosing an architecture that allowed the language to change without rewriting the entire compiler every time it did.</p>
+
+<h1 id="what-we-had"><a href="#what-we-had"></a>What we had</h1>
+
+<p>By the end of this step, Flecha had:</p>
+
+<ul>
+  <li>a tokenizer with a deliberately smaller public surface;</li>
+  <li>the first recursive-descent parser machinery;</li>
+  <li>an AST with source locations and typed node categories;</li>
+  <li>tests for construction, access, and destruction;</li>
+  <li>sanitizer support for memory leaks and use-after-free bugs.</li>
+</ul>
+
+<p>It still could not answer whether a name existed, whether two types were compatible, or whether a program could become native code. That was fine. The source finally had a shape.</p>
+
+<p>And once a compiler can represent a program, it can begin to understand one.</p>
+
+<h1 id="conclusion"><a href="#conclusion"></a>Conclusion</h1>
+
+<p>The exciting part of a first AST is not the number of nodes it contains. It is the boundary it creates. Text becomes syntax. Syntax becomes something we can inspect, test, and transform.</p>
+
+<p>An AST also exposes its own boundary. A parser can tell us that <code class="language-plaintext highlighter-rouge">value + 1</code> is a binary expression. Determining which <code class="language-plaintext highlighter-rouge">value</code> we meant, whether it is numeric, or whether it was declared at all belongs to semantic analysis.</p>
+
+<p><a href="/">Go back</a></p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-nc/3.0/deed.en_US">
+    <span>
+        <b>Alex Buschinelli</b>
+    </span>
+    
+    <span>© 2026</span>
+  </a>
+</footer>
+
+  
+</body>
+
+</html>

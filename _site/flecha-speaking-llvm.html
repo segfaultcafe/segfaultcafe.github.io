@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-GX2L7MWQLN"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-GX2L7MWQLN');
+</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+          .MathJax {
+  font-size: 180%; /* Adjust the percentage as needed */
+}
+  </style>
+
+  <title>Flecha Dev Log #4: Speaking LLVM for the First Time</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <script defer src="/assets/flecha-highlight.js"></script>
+  
+  <link href="/atom.xml" type="application/atom+xml" rel="alternate" title="ATOM Feed" /> <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Flecha Dev Log #4: Speaking LLVM for the First Time | Cecil Daemon’s Wish</title>
+<meta name="generator" content="Jekyll v4.3.3" />
+<meta property="og:title" content="Flecha Dev Log #4: Speaking LLVM for the First Time" />
+<meta name="author" content="J. Alex Buschinelli" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Introduction" />
+<meta property="og:description" content="Introduction" />
+<link rel="canonical" href="http://localhost:4000/flecha-speaking-llvm" />
+<meta property="og:url" content="http://localhost:4000/flecha-speaking-llvm" />
+<meta property="og:site_name" content="Cecil Daemon’s Wish" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-07-12T00:00:00-03:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Flecha Dev Log #4: Speaking LLVM for the First Time" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"J. Alex Buschinelli","url":"https://alexbsec.github.io/"},"dateModified":"2024-07-12T00:00:00-03:00","datePublished":"2024-07-12T00:00:00-03:00","description":"Introduction","headline":"Flecha Dev Log #4: Speaking LLVM for the First Time","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/flecha-speaking-llvm"},"url":"http://localhost:4000/flecha-speaking-llvm"}</script>
+<!-- End Jekyll SEO tag -->
+
+</head>
+
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    
+    <div style="display: flex; justify-content: center; align-items: center; text-decoration: none;">
+      <a href="/" style="display: flex; align-items: center; text-decoration: none;">
+          <img src="/assets/cecil.gif" alt="Cecil Daemon" style="margin-right: 20px;"/>
+          
+          
+          <h1>cecil@celestial:/flecha-speaking-llvm $</h1>
+      
+      </a>
+  </div>
+  <br>
+    </a>
+    <div class="header-links">
+      <a href="/"><h2 class="header-link">Home</h2></a>
+<a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+<a href="/atom.xml"><h2 class="header-link">RSS</h2></a>
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Flecha Dev Log #4: Speaking LLVM for the First Time</h2>
+  <time datetime="2024-07-12T00:00:00-03:00" class="by-line">12 Jul 2024</time>
+  <p>Estimated read time: 3 minutes</p>
+  <h1 id="introduction"><a href="#intro"></a>Introduction</h1>
+
+<p>Hi folks!</p>
+
+<p>We had source code, an AST, semantic analysis, and a typed bound IR. Every stage ended with a representation designed for the stage after it.</p>
+
+<p>Now we wanted proof that the architecture could leave the compiler and become executable behavior.</p>
+
+<p>The LLVM backend proves the architecture end to end: Flecha code becomes LLVM IR, passes LLVM’s verifier, and executes with the expected result.</p>
+
+<h1 id="the-first-complete-path"><a href="#the-first-complete-path"></a>The first complete path</h1>
+
+<p>The example was small:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">i32 add(i32 left, i32 right) {
+    return left + right;
+}
+
+i32 main() {
+    x := 21;
+    y := 22;
+    return add(x, y);
+}</code></pre></div></div>
+
+<p>Yes, it returns <code class="language-plaintext highlighter-rouge">43</code>; the surrounding proof target was later adjusted while the backend workflow settled. The valuable part was the path:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>source
+  → tokens
+  → AST
+  → semantic model
+  → bound IR
+  → LLVM module
+</code></pre></div></div>
+
+<p>The compiler driver gained <code class="language-plaintext highlighter-rouge">--emit-llvm</code>, which made the generated IR observable:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>build/flecha <span class="nt">--emit-llvm</span> examples/llvm_poc.fl <span class="nt">-o</span> build/llvm_poc.ll
+</code></pre></div></div>
+
+<p>Observability mattered. LLVM IR became another boundary we could inspect rather than a black box hidden behind “compile.”</p>
+
+<h1 id="the-backend-does-less"><a href="#the-backend-does-less"></a>The backend does less</h1>
+
+<p>The LLVM generator consumes only the bound program. It does not read syntax nodes, walk scopes, perform name lookup, or infer types.</p>
+
+<p>That limitation is a feature.</p>
+
+<p>Every function is declared in LLVM before any function body is emitted. A call can therefore target a function appearing later in the Flecha file without depending on emission order. Locals become stack allocations with explicit loads and stores. Arithmetic selects instructions using types the semantic analyzer already resolved.</p>
+
+<p>For unsupported types, code generation fails with a message. It does not invent a representation or emit invalid IR and hope LLVM explains the damage.</p>
+
+<h1 id="control-flow-is-values-and-blocks"><a href="#control-flow-is-values-and-blocks"></a>Control flow is values and blocks</h1>
+
+<p>Conditionals become LLVM basic blocks and branches. Boolean <code class="language-plaintext highlighter-rouge">and</code> and <code class="language-plaintext highlighter-rouge">or</code> require special care because Flecha promises short-circuit evaluation:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">if ready and check() {
+    return 42;
+}</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">check()</code> must not execute when <code class="language-plaintext highlighter-rouge">ready</code> is false. The backend therefore emits branches and joins the result with a PHI node. Integer logical operations remain ordinary bitwise operations because both operands are values, not control-flow decisions.</p>
+
+<p>That distinction is exactly why semantic types and bound operations must reach the backend intact. The token <code class="language-plaintext highlighter-rouge">and</code> alone is not enough information.</p>
+
+<h1 id="verify-every-module"><a href="#verify-every-module"></a>Verify every module</h1>
+
+<p>LLVM can represent malformed IR in memory while it is being constructed. We chose to run LLVM’s verifier on every completed module before returning it.</p>
+
+<p>This creates a powerful invariant: if code generation reports success, the module is structurally valid according to LLVM. A missing terminator, mismatched type, or invalid PHI edge becomes a compiler failure close to its cause.</p>
+
+<p>The proof-of-concept supported primitive integers, floats, booleans, characters, functions, parameters, stack locals, assignments, calls, returns, and conditional control flow.</p>
+
+<p>It deliberately did not support strings, pointers, object emission, target layouts, optimization pipelines, or native linking yet. Naming those exclusions was part of the design. “Not implemented” is much safer than an accidental representation becoming permanent.</p>
+
+<h1 id="why-llvm"><a href="#why-llvm"></a>Why LLVM?</h1>
+
+<p>Choosing LLVM let Flecha focus on language semantics while relying on a mature optimizer and target ecosystem. But LLVM was not allowed to become the language specification.</p>
+
+<p>Flecha decides what a cast means, whether evaluation short-circuits, which integer types are signed, and where runtime checks belong. LLVM receives those decisions after they have been resolved.</p>
+
+<p>The backend is an implementation of Flecha’s semantics, not the place where we discover them.</p>
+
+<h1 id="conclusion"><a href="#conclusion"></a>Conclusion</h1>
+
+<p>The first emitted module changed the feeling of the project. A declaration was no longer only an AST node. A return statement could travel through every layer and become an instruction another tool could execute.</p>
+
+<p>The important result is a backend with a narrow responsibility: translate a verified bound program into verified LLVM IR without redefining Flecha’s semantics along the way.</p>
+
+<p><a href="/">Go back</a></p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-nc/3.0/deed.en_US">
+    <span>
+        <b>Alex Buschinelli</b>
+    </span>
+    
+    <span>© 2026</span>
+  </a>
+</footer>
+
+  
+</body>
+
+</html>

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-GX2L7MWQLN"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-GX2L7MWQLN');
+</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+          .MathJax {
+  font-size: 180%; /* Adjust the percentage as needed */
+}
+  </style>
+
+  <title>Flecha Dev Log #27: Exhaustive Enum Matching</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <script defer src="/assets/flecha-highlight.js"></script>
+  
+  <link href="/atom.xml" type="application/atom+xml" rel="alternate" title="ATOM Feed" /> <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Flecha Dev Log #27: Exhaustive Enum Matching | Cecil Daemon’s Wish</title>
+<meta name="generator" content="Jekyll v4.3.3" />
+<meta property="og:title" content="Flecha Dev Log #27: Exhaustive Enum Matching" />
+<meta name="author" content="J. Alex Buschinelli" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Introduction" />
+<meta property="og:description" content="Introduction" />
+<link rel="canonical" href="http://localhost:4000/flecha-exhaustive-enum-matching" />
+<meta property="og:url" content="http://localhost:4000/flecha-exhaustive-enum-matching" />
+<meta property="og:site_name" content="Cecil Daemon’s Wish" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-04-24T00:00:00-03:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Flecha Dev Log #27: Exhaustive Enum Matching" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"J. Alex Buschinelli","url":"https://alexbsec.github.io/"},"dateModified":"2026-04-24T00:00:00-03:00","datePublished":"2026-04-24T00:00:00-03:00","description":"Introduction","headline":"Flecha Dev Log #27: Exhaustive Enum Matching","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/flecha-exhaustive-enum-matching"},"url":"http://localhost:4000/flecha-exhaustive-enum-matching"}</script>
+<!-- End Jekyll SEO tag -->
+
+</head>
+
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    
+    <div style="display: flex; justify-content: center; align-items: center; text-decoration: none;">
+      <a href="/" style="display: flex; align-items: center; text-decoration: none;">
+          <img src="/assets/cecil.gif" alt="Cecil Daemon" style="margin-right: 20px;"/>
+          
+          
+          <h1>cecil@celestial:/flecha-exhaustive-enum-matching $</h1>
+      
+      </a>
+  </div>
+  <br>
+    </a>
+    <div class="header-links">
+      <a href="/"><h2 class="header-link">Home</h2></a>
+<a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+<a href="/atom.xml"><h2 class="header-link">RSS</h2></a>
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Flecha Dev Log #27: Exhaustive Enum Matching</h2>
+  <time datetime="2026-04-24T00:00:00-03:00" class="by-line">24 Apr 2026</time>
+  <p>Estimated read time: 2 minutes</p>
+  <h1 id="introduction"><a href="#intro"></a>Introduction</h1>
+
+<p>Hi folks!</p>
+
+<p>An enum defines a closed set of possibilities. Once the compiler knows that set, asking programmers to reconstruct exhaustiveness with a chain of <code class="language-plaintext highlighter-rouge">if</code> statements would waste the most useful information the type provides.</p>
+
+<p>Flecha’s <code class="language-plaintext highlighter-rouge">match</code> is an expression that evaluates one enum value once, selects one arm, and requires the cases to be complete.</p>
+
+<h1 id="match-produces-a-value"><a href="#match-produces-a-value"></a>Match produces a value</h1>
+
+<p>Because <code class="language-plaintext highlighter-rouge">match</code> is an expression, it fits directly into a return or assignment:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">i32 precedence(TokenKind kind) {
+    return match kind {
+        TokenKind.Identifier =&gt; 1,
+        TokenKind.Number =&gt; 2,
+        TokenKind.End =&gt; 0,
+    };
+}</code></pre></div></div>
+
+<p>Every arm contains an expression. The enclosing declaration, argument, assignment, or return can provide its expected type; otherwise the first arm establishes the result type and the remaining arms must be assignable to it.</p>
+
+<p>Only the selected arm executes. The input expression itself executes exactly once, so a call or increment used as the subject cannot be duplicated by lowering.</p>
+
+<h1 id="exhaustiveness-is-checked"><a href="#exhaustiveness-is-checked"></a>Exhaustiveness is checked</h1>
+
+<p>Without a wildcard, every variant must appear exactly once. Missing a variant is a compile-time error. So are duplicate variants, unknown variants, and variants from another enum.</p>
+
+<p>This turns enum growth into useful pressure. Add a new token kind, rebuild, and every complete match that needs a decision points directly at the missing behavior.</p>
+
+<p>For cases where several values intentionally share behavior, <code class="language-plaintext highlighter-rouge">_</code> covers everything not already named:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">bool TokenKind::ends_input(&amp;const self) {
+    return match *self {
+        TokenKind.End =&gt; true,
+        _ =&gt; false,
+    };
+}</code></pre></div></div>
+
+<p>The wildcard must be the last arm. Code after it would be unreachable, and Flecha reports that instead of silently accepting a misleading list.</p>
+
+<h1 id="a-focused-pattern-language"><a href="#a-focused-pattern-language"></a>A focused pattern language</h1>
+
+<p>The initial pattern language has two forms: a qualified enum variant and <code class="language-plaintext highlighter-rouge">_</code>.</p>
+
+<p>There are no guards, ranges, integer or string patterns, destructuring patterns, or block-bodied arms here. Keeping the first version narrow made it possible to define exhaustiveness, typing, evaluation order, and code generation without pretending to support a general pattern system.</p>
+
+<p>That focus also keeps <code class="language-plaintext highlighter-rouge">match</code> aligned with its purpose: making decisions over a closed nominal type.</p>
+
+<h1 id="lowering-to-a-switch"><a href="#lowering-to-a-switch"></a>Lowering to a switch</h1>
+
+<p>The compiler lowers the expression to a switch over the enum’s backing integer. Every valid representation reaches one arm.</p>
+
+<p>When the source lists every variant and has no wildcard, impossible integer representations become unreachable in the backend. When <code class="language-plaintext highlighter-rouge">_</code> exists, it becomes the default edge. The source-level completeness proof therefore maps neatly onto efficient native control flow.</p>
+
+<h1 id="conclusion"><a href="#conclusion"></a>Conclusion</h1>
+
+<p><code class="language-plaintext highlighter-rouge">match</code> lets the enum declaration do real work. It removes repeated comparisons, keeps value production concise, and makes forgotten cases a compiler problem.</p>
+
+<p>The part I enjoy most is how direct the code reads: here is one value, here are all of its meanings, and here is the result for each one.</p>
+
+<p>I hope you liked this write-up and learned something new. As always, don’t forget to do your <strong>research!</strong></p>
+
+<p><a href="/">Go back</a></p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-nc/3.0/deed.en_US">
+    <span>
+        <b>Alex Buschinelli</b>
+    </span>
+    
+    <span>© 2026</span>
+  </a>
+</footer>
+
+  
+</body>
+
+</html>

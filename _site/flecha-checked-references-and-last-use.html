@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-GX2L7MWQLN"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-GX2L7MWQLN');
+</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+          .MathJax {
+  font-size: 180%; /* Adjust the percentage as needed */
+}
+  </style>
+
+  <title>Flecha Dev Log #13: Checked References and Last-Use Borrowing</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <script defer src="/assets/flecha-highlight.js"></script>
+  
+  <link href="/atom.xml" type="application/atom+xml" rel="alternate" title="ATOM Feed" /> <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Flecha Dev Log #13: Checked References and Last-Use Borrowing | Cecil Daemon’s Wish</title>
+<meta name="generator" content="Jekyll v4.3.3" />
+<meta property="og:title" content="Flecha Dev Log #13: Checked References and Last-Use Borrowing" />
+<meta name="author" content="J. Alex Buschinelli" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Introduction" />
+<meta property="og:description" content="Introduction" />
+<link rel="canonical" href="http://localhost:4000/flecha-checked-references-and-last-use" />
+<meta property="og:url" content="http://localhost:4000/flecha-checked-references-and-last-use" />
+<meta property="og:site_name" content="Cecil Daemon’s Wish" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-06-05T00:00:00-03:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Flecha Dev Log #13: Checked References and Last-Use Borrowing" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"J. Alex Buschinelli","url":"https://alexbsec.github.io/"},"dateModified":"2025-06-05T00:00:00-03:00","datePublished":"2025-06-05T00:00:00-03:00","description":"Introduction","headline":"Flecha Dev Log #13: Checked References and Last-Use Borrowing","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/flecha-checked-references-and-last-use"},"url":"http://localhost:4000/flecha-checked-references-and-last-use"}</script>
+<!-- End Jekyll SEO tag -->
+
+</head>
+
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    
+    <div style="display: flex; justify-content: center; align-items: center; text-decoration: none;">
+      <a href="/" style="display: flex; align-items: center; text-decoration: none;">
+          <img src="/assets/cecil.gif" alt="Cecil Daemon" style="margin-right: 20px;"/>
+          
+          
+          <h1>cecil@celestial:/flecha-checked-references-and-last-use $</h1>
+      
+      </a>
+  </div>
+  <br>
+    </a>
+    <div class="header-links">
+      <a href="/"><h2 class="header-link">Home</h2></a>
+<a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+<a href="/atom.xml"><h2 class="header-link">RSS</h2></a>
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Flecha Dev Log #13: Checked References and Last-Use Borrowing</h2>
+  <time datetime="2025-06-05T00:00:00-03:00" class="by-line">05 Jun 2025</time>
+  <p>Estimated read time: 3 minutes</p>
+  <h1 id="introduction"><a href="#intro"></a>Introduction</h1>
+
+<p>Hi folks!</p>
+
+<p>Raw pointers gave Flecha unrestricted low-level access inside explicit unsafe regions. They also made the cost of that freedom clear: the compiler could not prove the pointee was live, non-null, or exclusively accessed.</p>
+
+<p>For ordinary stack storage, we wanted a different tool.</p>
+
+<p>Checked references combine handle movement, reborrowing, conflict detection, and a shared control-flow graph for both definite assignment and borrow analysis.</p>
+
+<h1 id="a-reference-borrows-storage"><a href="#a-reference-borrows-storage"></a>A reference borrows storage</h1>
+
+<p>A checked reference is created with <code class="language-plaintext highlighter-rouge">&amp;</code> and accessed with <code class="language-plaintext highlighter-rouge">*</code>:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">void double_value(&amp;u8 value) {
+    *value = *value * 2;
+}
+
+i32 main() {
+    u8 value = 3;
+    reference := &amp;value;
+    double_value(reference);
+    return value as i32;
+}</code></pre></div></div>
+
+<p>The reference does not allocate, own, or extend the lifetime of <code class="language-plaintext highlighter-rouge">value</code>. It is non-null by construction and may only be created from initialized, addressable storage the compiler can track.</p>
+
+<p>At runtime, it lowers to a native address. There is no borrow counter and no hidden heap object.</p>
+
+<h1 id="exclusive-and-shared"><a href="#exclusive-and-shared"></a>Exclusive and shared</h1>
+
+<p><code class="language-plaintext highlighter-rouge">&amp;T</code> is an exclusive, writable borrow. <code class="language-plaintext highlighter-rouge">&amp;const T</code> is a shared, read-only borrow.</p>
+
+<p>While an exclusive borrow is live, conflicting reads, writes, moves, and borrows of the owner are rejected. Shared borrows can coexist with reads and other shared borrows, but block mutation.</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">u8 value = 3;
+mutable := &amp;value;
+*mutable = 4;
+
+shared := &amp;value;
+copy := shared;
+if *copy == *shared {
+    stdoutln(value);
+}</code></pre></div></div>
+
+<p>The accesses above occur in sequence. The compiler uses last possible use, not merely lexical scope, to end the earlier mutable loan before the shared one begins.</p>
+
+<p>That made programs less ceremonial without weakening the rule.</p>
+
+<h1 id="mutable-handles-move"><a href="#mutable-handles-move"></a>Mutable handles move</h1>
+
+<p>Copying an exclusive handle would create two independently usable paths to writable storage. Flecha therefore moves mutable reference handles:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">u8 value = 3;
+first := &amp;value;
+second := first;
+
+// *first = 4; // rejected: first was moved
+*second = 4;
+
+first = &amp;value; // usable again after rebinding</code></pre></div></div>
+
+<p>Shared handles copy because they cannot mutate the target. A fixed mutable handle cannot move; code must explicitly reborrow it instead.</p>
+
+<p>Function calls reborrow their reference arguments for the duration of the call. Passing <code class="language-plaintext highlighter-rouge">second</code> to a function does not permanently move it away from the caller.</p>
+
+<h1 id="reborrowing-freezes-the-parent"><a href="#reborrowing-freezes-the-parent"></a>Reborrowing freezes the parent</h1>
+
+<p><code class="language-plaintext highlighter-rouge">child := &amp;*parent</code> creates a child borrow through an existing reference.</p>
+
+<p>While a mutable child is live, the parent cannot access the target. Any live child prevents moving or rebinding the parent handle, because the child’s origin depends on it.</p>
+
+<p>After the child’s last possible use, the parent becomes available again.</p>
+
+<p>This is where “last use” becomes more than a convenience. It is the point at which a proof obligation ends and previously excluded access becomes safe again.</p>
+
+<h1 id="one-control-flow-graph"><a href="#one-control-flow-graph"></a>One control-flow graph</h1>
+
+<p>The first definite-assignment implementation had already shown that branches, loops, short-circuit expressions, <code class="language-plaintext highlighter-rouge">break</code>, <code class="language-plaintext highlighter-rouge">proceed</code>, and <code class="language-plaintext highlighter-rouge">jumpto</code> could not be analyzed reliably with isolated tree walks.</p>
+
+<p>Reference work extracted a shared control-flow graph.</p>
+
+<p>Backward liveness finds each handle’s last possible use. A forward may-analysis tracks possible borrow origins and moved states across reachable paths. If a handle may have moved on any incoming path, using it is rejected.</p>
+
+<p>Unreachable code contributes no borrow effects. Reexecuting a declaration cannot reset storage that remains borrowed from an earlier loop path.</p>
+
+<h1 id="conservative-by-design"><a href="#conservative-by-design"></a>Conservative by design</h1>
+
+<p>This first version borrowed whole owners and used lexical lifetime containment for assignments between handles. It did not correlate arbitrary condition values to prove a path impossible.</p>
+
+<p>References could not be returned or stored in escaping locations. Even cases a human could justify were rejected until the language had a function-level lifetime contract.</p>
+
+<p>Safe references also could not be manufactured from raw-pointer dereferences. An unsafe block may promise pointer validity for one access, but that does not give the compiler a durable origin for a safe borrow.</p>
+
+<p>These rejections kept the guarantee honest.</p>
+
+<h1 id="conclusion"><a href="#conclusion"></a>Conclusion</h1>
+
+<p>Checked references transform local address-taking from a programmer promise into a compile-time proof.</p>
+
+<p>The implementation connected type qualifiers, definite assignment, liveness, movement, reborrowing, and control flow—all while lowering to an ordinary address.</p>
+
+<p>The same model scales beyond scalars because references retain their origin, access mode, movement state, and last possible use.</p>
+
+<p><a href="/">Go back</a></p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-nc/3.0/deed.en_US">
+    <span>
+        <b>Alex Buschinelli</b>
+    </span>
+    
+    <span>© 2026</span>
+  </a>
+</footer>
+
+  
+</body>
+
+</html>

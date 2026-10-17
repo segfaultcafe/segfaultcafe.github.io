@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-GX2L7MWQLN"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-GX2L7MWQLN');
+</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+          .MathJax {
+  font-size: 180%; /* Adjust the percentage as needed */
+}
+  </style>
+
+  <title>Flecha Dev Log #14: Fixed Arrays, Bounds, and Iteration</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <script defer src="/assets/flecha-highlight.js"></script>
+  
+  <link href="/atom.xml" type="application/atom+xml" rel="alternate" title="ATOM Feed" /> <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Flecha Dev Log #14: Fixed Arrays, Bounds, and Iteration | Cecil Daemon’s Wish</title>
+<meta name="generator" content="Jekyll v4.3.3" />
+<meta property="og:title" content="Flecha Dev Log #14: Fixed Arrays, Bounds, and Iteration" />
+<meta name="author" content="J. Alex Buschinelli" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Introduction" />
+<meta property="og:description" content="Introduction" />
+<link rel="canonical" href="http://localhost:4000/flecha-fixed-arrays-and-iteration" />
+<meta property="og:url" content="http://localhost:4000/flecha-fixed-arrays-and-iteration" />
+<meta property="og:site_name" content="Cecil Daemon’s Wish" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-06-19T00:00:00-03:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Flecha Dev Log #14: Fixed Arrays, Bounds, and Iteration" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"J. Alex Buschinelli","url":"https://alexbsec.github.io/"},"dateModified":"2025-06-19T00:00:00-03:00","datePublished":"2025-06-19T00:00:00-03:00","description":"Introduction","headline":"Flecha Dev Log #14: Fixed Arrays, Bounds, and Iteration","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/flecha-fixed-arrays-and-iteration"},"url":"http://localhost:4000/flecha-fixed-arrays-and-iteration"}</script>
+<!-- End Jekyll SEO tag -->
+
+</head>
+
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    
+    <div style="display: flex; justify-content: center; align-items: center; text-decoration: none;">
+      <a href="/" style="display: flex; align-items: center; text-decoration: none;">
+          <img src="/assets/cecil.gif" alt="Cecil Daemon" style="margin-right: 20px;"/>
+          
+          
+          <h1>cecil@celestial:/flecha-fixed-arrays-and-iteration $</h1>
+      
+      </a>
+  </div>
+  <br>
+    </a>
+    <div class="header-links">
+      <a href="/"><h2 class="header-link">Home</h2></a>
+<a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+<a href="/atom.xml"><h2 class="header-link">RSS</h2></a>
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Flecha Dev Log #14: Fixed Arrays, Bounds, and Iteration</h2>
+  <time datetime="2025-06-19T00:00:00-03:00" class="by-line">19 Jun 2025</time>
+  <p>Estimated read time: 3 minutes</p>
+  <h1 id="introduction"><a href="#intro"></a>Introduction</h1>
+
+<p>Hi folks!</p>
+
+<p>Flecha can also describe contiguous data whose size is part of the type.</p>
+
+<p>Fixed arrays combine checked indexing, array borrowing, range iteration, counted loops, and postfix increment. Several language rules must agree: layout, initialization, copying, evaluation order, bounds, borrowing, and loop control.</p>
+
+<h1 id="length-is-part-of-the-type"><a href="#length-is-part-of-the-type"></a>Length is part of the type</h1>
+
+<p><code class="language-plaintext highlighter-rouge">[N]T</code> contains exactly <code class="language-plaintext highlighter-rouge">N</code> inline elements:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">[4]u8 values = [10, 20, 30, 40];
+[4]u8 zeros = none;
+[4]u8 repeated = [7; 4];
+inferred := [1, 2, 3];
+[0]u8 empty = [];
+[2][3]u8 grid = [[1, 2, 3], [4, 5, 6]];</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">[4]u8</code> and <code class="language-plaintext highlighter-rouge">[5]u8</code> are different types. Constructing either allocates no separate heap buffer.</p>
+
+<p>List initializers must provide exactly the expected number of elements. Missing values are not silently zero-filled. <code class="language-plaintext highlighter-rouge">none</code> is how a programmer explicitly requests recursive zero initialization.</p>
+
+<p>A repeat initializer evaluates its value once and copies the result, even for a zero count. List elements evaluate once each from left to right.</p>
+
+<h1 id="copies-own-their-inline-storage"><a href="#copies-own-their-inline-storage"></a>Copies own their inline storage</h1>
+
+<p>Assignment, parameters, and returns copy fixed-array values:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">[2]u8 changed([2]u8 value) {
+    value[0] = 42;
+    return value;
+}
+
+i32 main() {
+    original := [1, 2];
+    copy := original;
+    copy[0] = 42;
+    return original[0] as i32;
+}</code></pre></div></div>
+
+<p>Changing the copy does not change the source. Nested arrays copy recursively. Raw-pointer elements copy addresses without acquiring ownership of their pointees.</p>
+
+<p>Owning and borrowed element types were excluded until their destruction and lifetime rules could be represented soundly.</p>
+
+<h1 id="bounds-before-addresses"><a href="#bounds-before-addresses"></a>Bounds before addresses</h1>
+
+<p><code class="language-plaintext highlighter-rouge">values.len()</code> returns <code class="language-plaintext highlighter-rouge">usize</code>. An index must also be <code class="language-plaintext highlighter-rouge">usize</code>; integer literals adopt that context, while already typed integers need an explicit cast.</p>
+
+<p>Known-invalid constant indices are compile-time errors. Dynamic indices receive a runtime check before address calculation or access.</p>
+
+<p>That ordering matters. The compiler must not derive an invalid out-of-bounds pointer and only then decide not to dereference it.</p>
+
+<p>Invalid dynamic access traps. Unsafe blocks do not disable the check. Unchecked indexing was not introduced accidentally through a broader unsafe permission.</p>
+
+<p>For a store, Flecha captures the receiver, evaluates the index once, finishes bounds checking, and only then evaluates the right-hand side. Side effects therefore have a specified order.</p>
+
+<h1 id="borrowing-is-conservative"><a href="#borrowing-is-conservative"></a>Borrowing is conservative</h1>
+
+<p>Arrays integrate with checked references:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">[3]u8 values = [1, 2, 3];
+element := &amp;values[1];
+*element = 42;</code></pre></div></div>
+
+<p>The first implementation treats the entire root array as one borrow region. Even two different element indices are not assumed disjoint.</p>
+
+<p>That rejects some safe programs, but it avoids depending on index reasoning the compiler does not yet perform. Shared element borrows can coexist; overlapping mutable possibilities cannot.</p>
+
+<p>Delayed initialization also operates on the whole array. Assigning every element individually does not yet prove the aggregate initialized.</p>
+
+<h1 id="two-kinds-of-loop"><a href="#two-kinds-of-loop"></a>Two kinds of loop</h1>
+
+<p>Range iteration makes read-oriented traversal concise:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">for (index, value) := range values {
+    stdoutln(index);
+    stdoutln(value);
+}
+
+for (_, value) := range values {
+    stdoutln(value);
+}</code></pre></div></div>
+
+<p>The array expression evaluates once and is copied into a private snapshot. Each value binding is another copy. Mutating the original array does not change that snapshot.</p>
+
+<p>To mutate the original, use indexing through a counted loop:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">loop usize index = 0; index &lt; values.len(); index++ {
+    if index == 1 {
+        proceed;
+    }
+    values[index]++;
+}</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">proceed</code> executes the update before testing the condition again. <code class="language-plaintext highlighter-rouge">break</code> exits without it. The target location of <code class="language-plaintext highlighter-rouge">++</code> evaluates once and the expression yields its previous value.</p>
+
+<h1 id="implementation-shape"><a href="#implementation-shape"></a>Implementation shape</h1>
+
+<p>The parser normalizes counted loops into a scoped initializer plus a while-like node with a separate update. Range nodes retain enough source metadata for good diagnostics while introducing compiler-only snapshot and cursor bindings.</p>
+
+<p>Arrays lower to LLVM array values and native addresses. Repeat initialization uses a counted loop rather than expanding the initializer once per element.</p>
+
+<p>Again, source convenience was lowered into a smaller backend vocabulary.</p>
+
+<h1 id="conclusion"><a href="#conclusion"></a>Conclusion</h1>
+
+<p>Fixed arrays give Flecha contiguous inline storage, predictable layout, value copies, checked access, safe borrowing, and practical loops.</p>
+
+<p><a href="/">Go back</a></p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-nc/3.0/deed.en_US">
+    <span>
+        <b>Alex Buschinelli</b>
+    </span>
+    
+    <span>© 2026</span>
+  </a>
+</footer>
+
+  
+</body>
+
+</html>

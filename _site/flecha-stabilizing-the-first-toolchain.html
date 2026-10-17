@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-GX2L7MWQLN"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-GX2L7MWQLN');
+</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+          .MathJax {
+  font-size: 180%; /* Adjust the percentage as needed */
+}
+  </style>
+
+  <title>Flecha Dev Log #32: Stabilizing the First Toolchain</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <script defer src="/assets/flecha-highlight.js"></script>
+  
+  <link href="/atom.xml" type="application/atom+xml" rel="alternate" title="ATOM Feed" /> <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Flecha Dev Log #32: Stabilizing the First Toolchain | Cecil Daemon’s Wish</title>
+<meta name="generator" content="Jekyll v4.3.3" />
+<meta property="og:title" content="Flecha Dev Log #32: Stabilizing the First Toolchain" />
+<meta name="author" content="J. Alex Buschinelli" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Introduction" />
+<meta property="og:description" content="Introduction" />
+<link rel="canonical" href="http://localhost:4000/flecha-stabilizing-the-first-toolchain" />
+<meta property="og:url" content="http://localhost:4000/flecha-stabilizing-the-first-toolchain" />
+<meta property="og:site_name" content="Cecil Daemon’s Wish" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-09-14T00:00:00-03:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Flecha Dev Log #32: Stabilizing the First Toolchain" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"J. Alex Buschinelli","url":"https://alexbsec.github.io/"},"dateModified":"2026-09-14T00:00:00-03:00","datePublished":"2026-09-14T00:00:00-03:00","description":"Introduction","headline":"Flecha Dev Log #32: Stabilizing the First Toolchain","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/flecha-stabilizing-the-first-toolchain"},"url":"http://localhost:4000/flecha-stabilizing-the-first-toolchain"}</script>
+<!-- End Jekyll SEO tag -->
+
+</head>
+
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    
+    <div style="display: flex; justify-content: center; align-items: center; text-decoration: none;">
+      <a href="/" style="display: flex; align-items: center; text-decoration: none;">
+          <img src="/assets/cecil.gif" alt="Cecil Daemon" style="margin-right: 20px;"/>
+          
+          
+          <h1>cecil@celestial:/flecha-stabilizing-the-first-toolchain $</h1>
+      
+      </a>
+  </div>
+  <br>
+    </a>
+    <div class="header-links">
+      <a href="/"><h2 class="header-link">Home</h2></a>
+<a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+<a href="/atom.xml"><h2 class="header-link">RSS</h2></a>
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Flecha Dev Log #32: Stabilizing the First Toolchain</h2>
+  <time datetime="2026-09-14T00:00:00-03:00" class="by-line">14 Sep 2026</time>
+  <p>Estimated read time: 2 minutes</p>
+  <h1 id="introduction"><a href="#intro"></a>Introduction</h1>
+
+<p>Hi folks!</p>
+
+<p>There is a point in a young language where adding another feature is easier than reconciling everything already built.</p>
+
+<p>We chose reconciliation.</p>
+
+<p>Flecha 0.1.1 is a stabilization release: compiler crashes and misleading diagnostics were fixed, packages were tested as installations, toolchains were pinned, editor artifacts were added, and the documentation was brought back into agreement with the implementation.</p>
+
+<h1 id="stability-is-a-feature"><a href="#stability-is-a-feature"></a>Stability is a feature</h1>
+
+<p>A compiler should reject an invalid program with a useful source range. It should not crash because an unexpected type survived too far into lowering. It should not emit an object after a mandatory ownership check failed. It should not vary its answer because one code path forgot the rule another code path enforces.</p>
+
+<p>The stabilization pass concentrated on those seams: parser recovery, semantic diagnostics, native-driver failures, installed-path discovery, portability, and release packaging.</p>
+
+<p>This work is less visible than new syntax, but it changes how confidently we can use every existing feature.</p>
+
+<h1 id="documentation-is-tested-behavior"><a href="#documentation-is-tested-behavior"></a>Documentation is tested behavior</h1>
+
+<p>Early project documents naturally contain plans mixed with implementation. Over time, that becomes dangerous. A reader cannot tell whether a paragraph describes code they can run or an idea we still like.</p>
+
+<p>The 0.1.1 documentation distinguishes shipped behavior from proposals. Compiler commands, LLVM support, linking requirements, checked references, slices, allocation analysis, ownership contracts, generics, ABI limits, and cross-platform constraints are described according to the toolchain that exists.</p>
+
+<p>The test suite and documentation now share the same boundaries. When a limitation is real, we say it. When a workflow is promised, a clean installation exercises it.</p>
+
+<h1 id="one-release-one-revision"><a href="#one-release-one-revision"></a>One release, one revision</h1>
+
+<p>The release condition is deliberately holistic. The full protected matrix must pass from one revision: ordinary tests, sanitizer coverage, packaging, clean installation, editor validation, native output, and platform checks.</p>
+
+<p>That prevents a familiar failure mode where the Linux fix exists on one commit, the Windows package fix on another, and the published tag corresponds cleanly to neither.</p>
+
+<p>The compiler, Longbow, runtime, standard library, VSIX, Neovim files, documentation, archives, and checksums are treated as one versioned toolchain.</p>
+
+<h1 id="the-boundary-is-public"><a href="#the-boundary-is-public"></a>The boundary is public</h1>
+
+<p>A release archive bundles the LLVM runtime it needs. Native executable builds still rely on a documented host linker and SDK. The standard library is found through the installed layout. Editor packages have verifiable versions. Unsupported compiler and LLVM combinations fail during configuration.</p>
+
+<p>These decisions define which problems belong to Flecha and which prerequisites belong to the host. Stability improves when that boundary is explicit enough to test.</p>
+
+<h1 id="what-stabilization-feels-like"><a href="#what-stabilization-feels-like"></a>What stabilization feels like</h1>
+
+<p>The satisfying outcome is not a spectacular demo. It is repetition without surprise:</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>flecha check src/main.fl
+longbow build
+longbow run
+</code></pre></div></div>
+
+<p>The same project survives a clean machine, a relocated archive, and each supported platform. A failure names the missing piece. The docs describe the command we actually shipped.</p>
+
+<p>That is a different kind of progress from growing the syntax. It is the progress of making a tool dependable enough that attention can return to the program being written.</p>
+
+<h1 id="conclusion"><a href="#conclusion"></a>Conclusion</h1>
+
+<p>Flecha 0.1.1 gave the first installable toolchain a firmer floor. It aligned diagnostics, packages, supported versions, editor artifacts, and documentation around one tested release.</p>
+
+<p>Building a language is not only inventing semantics. It is also making those semantics arrive intact on another machine.</p>
+
+<p>I hope you liked this write-up and learned something new. As always, don’t forget to do your <strong>research!</strong></p>
+
+<p><a href="/">Go back</a></p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-nc/3.0/deed.en_US">
+    <span>
+        <b>Alex Buschinelli</b>
+    </span>
+    
+    <span>© 2026</span>
+  </a>
+</footer>
+
+  
+</body>
+
+</html>

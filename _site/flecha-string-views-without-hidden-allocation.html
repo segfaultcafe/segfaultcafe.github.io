@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-GX2L7MWQLN"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-GX2L7MWQLN');
+</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+          .MathJax {
+  font-size: 180%; /* Adjust the percentage as needed */
+}
+  </style>
+
+  <title>Flecha Dev Log #7: String Views Without Hidden Allocation</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <script defer src="/assets/flecha-highlight.js"></script>
+  
+  <link href="/atom.xml" type="application/atom+xml" rel="alternate" title="ATOM Feed" /> <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Flecha Dev Log #7: String Views Without Hidden Allocation | Cecil Daemon’s Wish</title>
+<meta name="generator" content="Jekyll v4.3.3" />
+<meta property="og:title" content="Flecha Dev Log #7: String Views Without Hidden Allocation" />
+<meta name="author" content="J. Alex Buschinelli" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Introduction" />
+<meta property="og:description" content="Introduction" />
+<link rel="canonical" href="http://localhost:4000/flecha-string-views-without-hidden-allocation" />
+<meta property="og:url" content="http://localhost:4000/flecha-string-views-without-hidden-allocation" />
+<meta property="og:site_name" content="Cecil Daemon’s Wish" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-10-19T00:00:00-03:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Flecha Dev Log #7: String Views Without Hidden Allocation" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"J. Alex Buschinelli","url":"https://alexbsec.github.io/"},"dateModified":"2024-10-19T00:00:00-03:00","datePublished":"2024-10-19T00:00:00-03:00","description":"Introduction","headline":"Flecha Dev Log #7: String Views Without Hidden Allocation","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/flecha-string-views-without-hidden-allocation"},"url":"http://localhost:4000/flecha-string-views-without-hidden-allocation"}</script>
+<!-- End Jekyll SEO tag -->
+
+</head>
+
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    
+    <div style="display: flex; justify-content: center; align-items: center; text-decoration: none;">
+      <a href="/" style="display: flex; align-items: center; text-decoration: none;">
+          <img src="/assets/cecil.gif" alt="Cecil Daemon" style="margin-right: 20px;"/>
+          
+          
+          <h1>cecil@celestial:/flecha-string-views-without-hidden-allocation $</h1>
+      
+      </a>
+  </div>
+  <br>
+    </a>
+    <div class="header-links">
+      <a href="/"><h2 class="header-link">Home</h2></a>
+<a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+<a href="/atom.xml"><h2 class="header-link">RSS</h2></a>
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Flecha Dev Log #7: String Views Without Hidden Allocation</h2>
+  <time datetime="2024-10-19T00:00:00-03:00" class="by-line">19 Oct 2024</time>
+  <p>Estimated read time: 3 minutes</p>
+  <h1 id="introduction"><a href="#intro"></a>Introduction</h1>
+
+<p>Hi folks!</p>
+
+<p>Until this point, Flecha’s native programs could calculate values and return an exit code. That was enough to prove the pipeline, but not enough to make programs pleasant.</p>
+
+<p>We wanted text. More specifically, we wanted the simplest useful text representation first: an immutable view over bytes.</p>
+
+<p><code class="language-plaintext highlighter-rouge">stringv</code> provides that representation, together with string literals, content comparisons, and editor syntax support.</p>
+
+<h1 id="a-view-not-an-owner"><a href="#a-view-not-an-owner"></a>A view, not an owner</h1>
+
+<p>A <code class="language-plaintext highlighter-rouge">stringv</code> contains two pieces of information:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>address of immutable bytes + byte length
+</code></pre></div></div>
+
+<p>It does not allocate and it does not own the bytes. A literal points at static storage embedded in the generated program:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">stringv Identity(stringv value) {
+    return value;
+}
+
+i32 main() {
+    message := Identity("Flecha");
+    return 0;
+}</code></pre></div></div>
+
+<p>The literal’s length is explicit. It does not depend on scanning for a terminating null byte. That makes embedded zero bytes representable and lets operations work on an exact range.</p>
+
+<p>Choosing a view first also kept allocation out of basic text usage. Passing a literal into a function is copying a small pair, not allocating a new buffer.</p>
+
+<h1 id="the-target-decides-the-layout"><a href="#the-target-decides-the-layout"></a>The target decides the layout</h1>
+
+<p>In LLVM, <code class="language-plaintext highlighter-rouge">stringv</code> became a structure containing a pointer and an integer length. The length uses the target’s pointer width.</p>
+
+<p>That reused a decision from native code generation: the module’s data layout must be installed before types such as <code class="language-plaintext highlighter-rouge">usize</code> or <code class="language-plaintext highlighter-rouge">stringv</code> are constructed.</p>
+
+<p>String literals become immutable global data. The generated view points at the first byte and stores the literal’s byte count. Functions can accept and return that value using the ordinary type pipeline.</p>
+
+<p>No C++ string object crosses into generated code. No compiler implementation type leaks into the language ABI.</p>
+
+<h1 id="equality-means-content"><a href="#equality-means-content"></a>Equality means content</h1>
+
+<p>Two string views are equal when their lengths and bytes are equal—not when their pointers happen to match.</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">bool Equal(stringv left, stringv right) {
+    return left == right;
+}
+
+i32 main() {
+    message := Identity("Flecha");
+
+    if Equal(message, "Flecha") and
+       message != "Arrow" and
+       "" == "" {
+        return 42;
+    }
+
+    return 0;
+}</code></pre></div></div>
+
+<p>The empty-string case was worth testing explicitly. A zero-length view must compare correctly without requiring a valid element access or depending on a particular pointer identity.</p>
+
+<p>The backend special-cased string-view equality because the operation is semantic, not a single integer comparison. Flecha still exposes it through the familiar <code class="language-plaintext highlighter-rouge">==</code> and <code class="language-plaintext highlighter-rouge">!=</code> operators.</p>
+
+<h1 id="what-we-deliberately-did-not-add"><a href="#what-we-deliberately-did-not-add"></a>What we deliberately did not add</h1>
+
+<p><code class="language-plaintext highlighter-rouge">stringv</code> was not a growable string, an owning allocation, or a Unicode abstraction.</p>
+
+<p>The first text model counted bytes, and <code class="language-plaintext highlighter-rouge">char</code> remained an eight-bit value. Unicode decoding and code-point iteration belonged in a future text library. Keeping those concerns separate prevented the storage representation from pretending it had Unicode semantics it did not implement.</p>
+
+<p>Ownership remains separate. A view can refer to static data or storage managed elsewhere, but it cannot keep dynamic storage alive.</p>
+
+<h1 id="the-language-should-look-like-a-language"><a href="#the-language-should-look-like-a-language"></a>The language should look like a language</h1>
+
+<p>This milestone also added Flecha syntax support for Neovim: type names, modifiers, control-flow keywords, operators, labels, numbers, strings, characters, comments, and function-like names.</p>
+
+<p>Compiler correctness comes first, but editor support changes how a language feels. A new syntax becomes easier to scan, examples become easier to review, and mistakes become visible before the compiler runs.</p>
+
+<p>The editor rules received their own fixture and syntax test. Highlighting was treated as maintained tooling rather than a pasted collection of regular expressions.</p>
+
+<h1 id="conclusion"><a href="#conclusion"></a>Conclusion</h1>
+
+<p><code class="language-plaintext highlighter-rouge">stringv</code> gave Flecha useful text without hidden allocation. It also forced us to settle a concrete representation: pointer plus length, target-sized, immutable, and byte-oriented.</p>
+
+<p>The result is useful text without hidden allocation, while output and other platform services remain cleanly separated from the LLVM backend through the runtime boundary.</p>
+
+<p><a href="/">Go back</a></p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-nc/3.0/deed.en_US">
+    <span>
+        <b>Alex Buschinelli</b>
+    </span>
+    
+    <span>© 2026</span>
+  </a>
+</footer>
+
+  
+</body>
+
+</html>

@@ -230,6 +230,31 @@ code.highlighter-rouge {
   border-radius: 2px;
 }
 
+/* Flecha is not part of Rouge yet, so its blocks are highlighted in the
+   browser by assets/flecha-highlight.js. Keep these colors aligned with the
+   existing Base16 theme used by the other language lexers. */
+code.language-flecha .fl-comment {
+  color: #888;
+}
+code.language-flecha .fl-keyword {
+  color: #aa759f;
+}
+code.language-flecha .fl-type {
+  color: #d28445;
+}
+code.language-flecha .fl-literal, code.language-flecha .fl-number {
+  color: #90a959;
+}
+code.language-flecha .fl-string {
+  color: #90a959;
+}
+code.language-flecha .fl-builtin, code.language-flecha .fl-operator {
+  color: #f4bf75;
+}
+code.language-flecha .fl-function, code.language-flecha .fl-label {
+  color: #6a9fb5;
+}
+
 table {
   width: 100%;
   margin: 0 0 20px 0;

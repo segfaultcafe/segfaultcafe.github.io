@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-GX2L7MWQLN"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-GX2L7MWQLN');
+</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+          .MathJax {
+  font-size: 180%; /* Adjust the percentage as needed */
+}
+  </style>
+
+  <title>Flecha Dev Log #8: Designing a Runtime ABI</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <script defer src="/assets/flecha-highlight.js"></script>
+  
+  <link href="/atom.xml" type="application/atom+xml" rel="alternate" title="ATOM Feed" /> <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Flecha Dev Log #8: Designing a Runtime ABI | Cecil Daemon’s Wish</title>
+<meta name="generator" content="Jekyll v4.3.3" />
+<meta property="og:title" content="Flecha Dev Log #8: Designing a Runtime ABI" />
+<meta name="author" content="J. Alex Buschinelli" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Introduction" />
+<meta property="og:description" content="Introduction" />
+<link rel="canonical" href="http://localhost:4000/flecha-designing-a-runtime-abi" />
+<meta property="og:url" content="http://localhost:4000/flecha-designing-a-runtime-abi" />
+<meta property="og:site_name" content="Cecil Daemon’s Wish" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-11-11T00:00:00-03:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Flecha Dev Log #8: Designing a Runtime ABI" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"J. Alex Buschinelli","url":"https://alexbsec.github.io/"},"dateModified":"2024-11-11T00:00:00-03:00","datePublished":"2024-11-11T00:00:00-03:00","description":"Introduction","headline":"Flecha Dev Log #8: Designing a Runtime ABI","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/flecha-designing-a-runtime-abi"},"url":"http://localhost:4000/flecha-designing-a-runtime-abi"}</script>
+<!-- End Jekyll SEO tag -->
+
+</head>
+
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    
+    <div style="display: flex; justify-content: center; align-items: center; text-decoration: none;">
+      <a href="/" style="display: flex; align-items: center; text-decoration: none;">
+          <img src="/assets/cecil.gif" alt="Cecil Daemon" style="margin-right: 20px;"/>
+          
+          
+          <h1>cecil@celestial:/flecha-designing-a-runtime-abi $</h1>
+      
+      </a>
+  </div>
+  <br>
+    </a>
+    <div class="header-links">
+      <a href="/"><h2 class="header-link">Home</h2></a>
+<a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+<a href="/atom.xml"><h2 class="header-link">RSS</h2></a>
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Flecha Dev Log #8: Designing a Runtime ABI</h2>
+  <time datetime="2024-11-11T00:00:00-03:00" class="by-line">11 Nov 2024</time>
+  <p>Estimated read time: 3 minutes</p>
+  <h1 id="introduction"><a href="#intro"></a>Introduction</h1>
+
+<p>Hi folks!</p>
+
+<p>A compiler can emit arithmetic and branches without much help. Printing a value is different. Formatting numbers, writing bytes, reporting runtime failures, and interacting with the operating system are services—not LLVM instructions.</p>
+
+<p>We could emit calls directly to whatever C++ function is convenient. Instead, Flecha uses a small, versioned C ABI between generated programs and the runtime.</p>
+
+<p>It was the first time we had to ask not only “what does Flecha mean?” but also “what binary promise connects compiled code to its runtime?”</p>
+
+<h1 id="a-versioned-boundary"><a href="#a-versioned-boundary"></a>A versioned boundary</h1>
+
+<p>Every runtime symbol received the prefix <code class="language-plaintext highlighter-rouge">flecha_runtime_v1_</code>.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">flecha_runtime_v1_stdout_i32</span><span class="p">(</span><span class="kt">int32_t</span> <span class="n">value</span><span class="p">);</span>
+<span class="kt">void</span> <span class="nf">flecha_runtime_v1_stdout_f64</span><span class="p">(</span><span class="kt">double</span> <span class="n">value</span><span class="p">);</span>
+<span class="kt">void</span> <span class="nf">flecha_runtime_v1_stdout_bool</span><span class="p">(</span><span class="kt">uint8_t</span> <span class="n">value</span><span class="p">);</span>
+<span class="kt">void</span> <span class="nf">flecha_runtime_v1_stdout_newline</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+</code></pre></div></div>
+
+<p>The public header uses fixed-width C scalars, <code class="language-plaintext highlighter-rouge">size_t</code>, pointer-sized integer types, and raw pointers. It does not expose C++ classes, standard-library objects, exceptions, or C++ name mangling.</p>
+
+<p>That gives us a stable binary surface even though the compiler and runtime are implemented in C++. A breaking declaration requires a new ABI version and prefix. Adding a new version-one symbol is possible without changing existing calls.</p>
+
+<h1 id="values-cross-in-simple-pieces"><a href="#values-cross-in-simple-pieces"></a>Values cross in simple pieces</h1>
+
+<p><code class="language-plaintext highlighter-rouge">stringv</code> is represented in generated code as a pointer and length. At the runtime boundary, it crosses as those two arguments:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">flecha_runtime_v1_stdout_string_view</span><span class="p">(</span>
+    <span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">data</span><span class="p">,</span>
+    <span class="kt">size_t</span> <span class="n">length</span>
+<span class="p">);</span>
+</code></pre></div></div>
+
+<p>No terminating null byte is required, and the terminator is not part of the length. The runtime writes exactly the byte range Flecha passed.</p>
+
+<p>This is less magical than passing a compiler-specific structure by value, and that is the point. ABI boundaries should be boring enough to inspect with ordinary platform tools.</p>
+
+<h1 id="formatting-belongs-to-the-runtime"><a href="#formatting-belongs-to-the-runtime"></a>Formatting belongs to the runtime</h1>
+
+<p>Flecha exposes <code class="language-plaintext highlighter-rouge">stdout</code> and <code class="language-plaintext highlighter-rouge">stdoutln</code>:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">i32 main() {
+    stdoutln("Flecha");
+    stdoutln(32);
+    stdoutln(64 as u64);
+    stdoutln(1.5);
+    stdoutln(true);
+    stdoutln('!');
+    return 42;
+}</code></pre></div></div>
+
+<p>The compiler emits a typed runtime call for the value. <code class="language-plaintext highlighter-rouge">stdoutln</code> emits the same typed call followed by the newline function.</p>
+
+<p>The runtime decides that a boolean prints as <code class="language-plaintext highlighter-rouge">true</code> or <code class="language-plaintext highlighter-rouge">false</code>, how many significant digits a float receives, and which portable integer format macro matches each width.</p>
+
+<p>Keeping formatting out of LLVM lowering prevents user-facing output policy from becoming scattered across backend instruction-building code.</p>
+
+<h1 id="object-files-can-stand-alone"><a href="#object-files-can-stand-alone"></a>Object files can stand alone</h1>
+
+<p>Object-only compilation intentionally does not require the runtime archive. The resulting object may contain unresolved Flecha runtime symbols, just as an ordinary C object may contain unresolved library calls.</p>
+
+<p>Executable builds are different. The native compiler automatically links the configured runtime archive. If it is missing or the linker fails, Flecha reports a structured compiler diagnostic.</p>
+
+<p>This preserved the earlier separation:</p>
+
+<ul>
+  <li>object emission produces a relocatable unit;</li>
+  <li>executable building resolves its runtime dependencies.</li>
+</ul>
+
+<p>That separation also makes packaging, external linking, and C interoperability easier to reason about.</p>
+
+<h1 id="a-small-runtime-a-large-decision"><a href="#small-runtime-large-decision"></a>A small runtime, a large decision</h1>
+
+<p>The first runtime implementation was intentionally tiny. It used standard C I/O operations and exposed only the functions generated code needed.</p>
+
+<p>But the architectural decision was larger than the file:</p>
+
+<blockquote>
+  <p>Generated code talks to a documented, versioned ABI—not directly to compiler internals.</p>
+</blockquote>
+
+<p>From this point onward, bounds checks, owned values, allocation, and other runtime-assisted features had an appropriate home.</p>
+
+<h1 id="conclusion"><a href="#conclusion"></a>Conclusion</h1>
+
+<p>With the runtime ABI, a Flecha program can print every supported scalar and string view, then exit as a normal native executable.</p>
+
+<p>The versioned boundary can grow without coupling generated code to C++ implementation details.</p>
+
+<p><a href="/">Go back</a></p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-nc/3.0/deed.en_US">
+    <span>
+        <b>Alex Buschinelli</b>
+    </span>
+    
+    <span>© 2026</span>
+  </a>
+</footer>
+
+  
+</body>
+
+</html>

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-GX2L7MWQLN"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-GX2L7MWQLN');
+</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+          .MathJax {
+  font-size: 180%; /* Adjust the percentage as needed */
+}
+  </style>
+
+  <title>Flecha Dev Log #29: Making Linker Failures Actionable</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <script defer src="/assets/flecha-highlight.js"></script>
+  
+  <link href="/atom.xml" type="application/atom+xml" rel="alternate" title="ATOM Feed" /> <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Flecha Dev Log #29: Making Linker Failures Actionable | Cecil Daemon’s Wish</title>
+<meta name="generator" content="Jekyll v4.3.3" />
+<meta property="og:title" content="Flecha Dev Log #29: Making Linker Failures Actionable" />
+<meta name="author" content="J. Alex Buschinelli" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Introduction" />
+<meta property="og:description" content="Introduction" />
+<link rel="canonical" href="http://localhost:4000/flecha-linker-diagnostics" />
+<meta property="og:url" content="http://localhost:4000/flecha-linker-diagnostics" />
+<meta property="og:site_name" content="Cecil Daemon’s Wish" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-06-27T00:00:00-03:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Flecha Dev Log #29: Making Linker Failures Actionable" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"J. Alex Buschinelli","url":"https://alexbsec.github.io/"},"dateModified":"2026-06-27T00:00:00-03:00","datePublished":"2026-06-27T00:00:00-03:00","description":"Introduction","headline":"Flecha Dev Log #29: Making Linker Failures Actionable","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/flecha-linker-diagnostics"},"url":"http://localhost:4000/flecha-linker-diagnostics"}</script>
+<!-- End Jekyll SEO tag -->
+
+</head>
+
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    
+    <div style="display: flex; justify-content: center; align-items: center; text-decoration: none;">
+      <a href="/" style="display: flex; align-items: center; text-decoration: none;">
+          <img src="/assets/cecil.gif" alt="Cecil Daemon" style="margin-right: 20px;"/>
+          
+          
+          <h1>cecil@celestial:/flecha-linker-diagnostics $</h1>
+      
+      </a>
+  </div>
+  <br>
+    </a>
+    <div class="header-links">
+      <a href="/"><h2 class="header-link">Home</h2></a>
+<a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+<a href="/atom.xml"><h2 class="header-link">RSS</h2></a>
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Flecha Dev Log #29: Making Linker Failures Actionable</h2>
+  <time datetime="2026-06-27T00:00:00-03:00" class="by-line">27 Jun 2026</time>
+  <p>Estimated read time: 2 minutes</p>
+  <h1 id="introduction"><a href="#intro"></a>Introduction</h1>
+
+<p>Hi folks!</p>
+
+<p>Native compilation has an awkward seam. Flecha can successfully parse, check, and lower a program, emit a correct object file, and then depend on a host C++ driver to produce the executable.</p>
+
+<p>When that last step fails, “linker exited with code 1” is technically true and practically useless.</p>
+
+<p>We changed linker discovery and reporting so the compiler explains what it attempted and what the machine is missing.</p>
+
+<h1 id="build-has-distinct-stages"><a href="#build-has-distinct-stages"></a>Build has distinct stages</h1>
+
+<p>The command line exposes the compiler’s stopping points:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>flecha check input.fl
+flecha --emit-llvm input.fl
+flecha --emit-object input.fl -o input.o
+flecha build input.fl -o input
+</code></pre></div></div>
+
+<p>Only the last command needs the native linker. This matters for diagnostics: a user checking source should not be told to install an SDK that the requested operation never uses.</p>
+
+<p>It also gives us a clean fault boundary. If object emission succeeds and executable linking fails, the error belongs to host toolchain discovery or invocation rather than Flecha’s frontend.</p>
+
+<h1 id="discovery-you-can-explain"><a href="#discovery-you-can-explain"></a>Discovery you can explain</h1>
+
+<p>On each platform, Flecha searches a documented set of suitable C++ drivers. It records which candidates were attempted instead of discarding that information.</p>
+
+<p>If none can be used, the diagnostic lists the attempted driver names and gives platform-specific prerequisites: development and startup files on Linux, the UCRT64 Clang environment on Windows, or Xcode command-line tools and a macOS SDK on macOS.</p>
+
+<p>When a driver launches but linking fails, Flecha includes the actual linker output. We should never hide the one message that names an undefined symbol, missing library, or incompatible architecture.</p>
+
+<h1 id="an-authoritative-override"><a href="#an-authoritative-override"></a>An authoritative override</h1>
+
+<p>Automatic discovery is convenient until a machine has several toolchains. <code class="language-plaintext highlighter-rouge">FLECHA_LINKER</code> selects a driver name or full path:</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">FLECHA_LINKER</span><span class="o">=</span>/opt/llvm/bin/clang++ flecha build src/main.fl <span class="nt">-o</span> app
+</code></pre></div></div>
+
+<p>The override is authoritative. If it is invalid, Flecha reports that failure instead of silently falling back to another compiler and producing a binary with a toolchain the user did not select.</p>
+
+<p>That behavior is especially useful in CI and reproducible build environments, where an unexpected fallback is often worse than a clear failure.</p>
+
+<h1 id="temporary-output-must-be-safe"><a href="#temporary-output-must-be-safe"></a>Temporary output must be safe</h1>
+
+<p>Executable builds first emit Flecha code to a unique temporary object and then invoke the native driver.</p>
+
+<p>Using a unique path avoids an easy but destructive collision: if the requested executable is named <code class="language-plaintext highlighter-rouge">program</code> and the user links a nearby <code class="language-plaintext highlighter-rouge">program.o</code>, compiler output must never overwrite that input object. Temporary artifacts are implementation details; user-supplied link inputs are not disposable.</p>
+
+<p>The same rule makes concurrent builds and repeated invocations much less surprising.</p>
+
+<h1 id="runtime-discovery-is-part-of-the-story"><a href="#runtime-discovery-is-part-of-the-story"></a>Runtime discovery is part of the story</h1>
+
+<p>An installed compiler finds its version-matched runtime library relative to its own executable. A development override exists for diagnostics, but installed layouts do not depend on the repository that produced them.</p>
+
+<p>When linking fails because that runtime is absent or unusable, the error identifies the expected location. The diagnostic should connect the user’s action to the missing component, not ask them to understand compiler internals first.</p>
+
+<h1 id="conclusion"><a href="#conclusion"></a>Conclusion</h1>
+
+<p>Error reporting is part of toolchain design. Flecha now distinguishes frontend work from native linking, explains driver discovery, respects an explicit override, preserves linker output, and offers advice for the actual platform.</p>
+
+<p>The goal is simple: a failed build should leave us with the next action, not a mystery.</p>
+
+<p>I hope you liked this write-up and learned something new. As always, don’t forget to do your <strong>research!</strong></p>
+
+<p><a href="/">Go back</a></p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-nc/3.0/deed.en_US">
+    <span>
+        <b>Alex Buschinelli</b>
+    </span>
+    
+    <span>© 2026</span>
+  </a>
+</footer>
+
+  
+</body>
+
+</html>

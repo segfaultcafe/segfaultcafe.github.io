@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-GX2L7MWQLN"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-GX2L7MWQLN');
+</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+          .MathJax {
+  font-size: 180%; /* Adjust the percentage as needed */
+}
+  </style>
+
+  <title>Flecha Dev Log #2: Teaching the Compiler What Code Means</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <script defer src="/assets/flecha-highlight.js"></script>
+  
+  <link href="/atom.xml" type="application/atom+xml" rel="alternate" title="ATOM Feed" /> <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Flecha Dev Log #2: Teaching the Compiler What Code Means | Cecil Daemon’s Wish</title>
+<meta name="generator" content="Jekyll v4.3.3" />
+<meta property="og:title" content="Flecha Dev Log #2: Teaching the Compiler What Code Means" />
+<meta name="author" content="J. Alex Buschinelli" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Introduction" />
+<meta property="og:description" content="Introduction" />
+<link rel="canonical" href="http://localhost:4000/flecha-teaching-the-compiler-meaning" />
+<meta property="og:url" content="http://localhost:4000/flecha-teaching-the-compiler-meaning" />
+<meta property="og:site_name" content="Cecil Daemon’s Wish" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-05-09T00:00:00-03:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Flecha Dev Log #2: Teaching the Compiler What Code Means" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"J. Alex Buschinelli","url":"https://alexbsec.github.io/"},"dateModified":"2024-05-09T00:00:00-03:00","datePublished":"2024-05-09T00:00:00-03:00","description":"Introduction","headline":"Flecha Dev Log #2: Teaching the Compiler What Code Means","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/flecha-teaching-the-compiler-meaning"},"url":"http://localhost:4000/flecha-teaching-the-compiler-meaning"}</script>
+<!-- End Jekyll SEO tag -->
+
+</head>
+
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    
+    <div style="display: flex; justify-content: center; align-items: center; text-decoration: none;">
+      <a href="/" style="display: flex; align-items: center; text-decoration: none;">
+          <img src="/assets/cecil.gif" alt="Cecil Daemon" style="margin-right: 20px;"/>
+          
+          
+          <h1>cecil@celestial:/flecha-teaching-the-compiler-meaning $</h1>
+      
+      </a>
+  </div>
+  <br>
+    </a>
+    <div class="header-links">
+      <a href="/"><h2 class="header-link">Home</h2></a>
+<a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+<a href="/atom.xml"><h2 class="header-link">RSS</h2></a>
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Flecha Dev Log #2: Teaching the Compiler What Code Means</h2>
+  <time datetime="2024-05-09T00:00:00-03:00" class="by-line">09 May 2024</time>
+  <p>Estimated read time: 3 minutes</p>
+  <h1 id="introduction"><a href="#intro"></a>Introduction</h1>
+
+<p>Hi folks!</p>
+
+<p>Flecha’s abstract syntax tree can identify a function, a declaration, and a call.</p>
+
+<p>That is syntax. It is not meaning.</p>
+
+<p>Consider this perfectly parseable program:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">i32 main() {
+    answer := missing + 1;
+    return false;
+}</code></pre></div></div>
+
+<p>The braces match. The operators are in legal positions. Yet <code class="language-plaintext highlighter-rouge">missing</code> does not exist, and a function returning <code class="language-plaintext highlighter-rouge">i32</code> cannot return <code class="language-plaintext highlighter-rouge">bool</code>.</p>
+
+<p>Semantic analysis connects that syntax to scopes, symbols, resolved types, and exact diagnostics.</p>
+
+<h1 id="two-type-worlds"><a href="#two-type-worlds"></a>Two type worlds</h1>
+
+<p>One of the first decisions was to keep syntax types and semantic types separate.</p>
+
+<p>An AST type records what the programmer wrote. A semantic type records what the compiler resolved. Those are related, but they are not the same job. The semantic layer also needs internal concepts such as function types, error-recovery types, and literal-only states that should never become source syntax.</p>
+
+<p>The first semantic model understood all primitive widths:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">i8 tiny = 1;
+i32 ordinary = 32;
+u64 large = 64;
+f32 decimal = 1.25;
+bool ready = true;
+char marker = '!';</code></pre></div></div>
+
+<p>Literal defaults were deliberate: integer literals became <code class="language-plaintext highlighter-rouge">i32</code>, floating-point literals became <code class="language-plaintext highlighter-rouge">f64</code>, and strings, characters, booleans, <code class="language-plaintext highlighter-rouge">null</code>, and <code class="language-plaintext highlighter-rouge">none</code> each retained their own semantic category.</p>
+
+<p>Most importantly, distinct numeric types do not silently coerce. If two arithmetic operands have different types, the compiler rejects the expression and requires an explicit conversion.</p>
+
+<h1 id="names-need-identities"><a href="#names-need-identities"></a>Names need identities</h1>
+
+<p>Textual names are not enough. Two variables can have the same spelling and still be different variables:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">i32 main() {
+    value := 1;
+
+    if true {
+        value := false;
+        value = true;
+    }
+
+    value = 2;
+    return value;
+}</code></pre></div></div>
+
+<p>The inner <code class="language-plaintext highlighter-rouge">value</code> intentionally shadows the outer one. To model that correctly, Flecha introduced symbols and lexical scopes.</p>
+
+<p>Lookup starts in the current scope and walks outward. Duplicate names are rejected inside one scope, but nested scopes can shadow. Functions live in the compilation-unit scope. Parameters and top-level locals live in a function scope. Conditional bodies create child scopes.</p>
+
+<p>The semantic model binds every name expression directly to the symbol it resolved. Later stages do not repeat lookup or guess based on text.</p>
+
+<h1 id="declaration-order-is-a-language-rule"><a href="#declaration-order-is-a-language-rule"></a>Declaration order is a language rule</h1>
+
+<p>Functions are registered before their bodies are analyzed, which permits a function to call another function declared later in the file.</p>
+
+<p>Locals follow a different rule. Their initializer is analyzed before the new name enters the scope:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">i32 main() {
+    value := value + 1;
+    return value;
+}</code></pre></div></div>
+
+<p>That is an error. The declaration cannot initialize itself by accidentally finding the name being created. The same decision makes use-before-declaration straightforward to diagnose.</p>
+
+<p>The inferred-declaration operator also gained real meaning:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">base := 32;
+sum := (base + 10) * 2;
+comparison := sum &gt; base;</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">sum</code> resolves to <code class="language-plaintext highlighter-rouge">i32</code>; <code class="language-plaintext highlighter-rouge">comparison</code> resolves to <code class="language-plaintext highlighter-rouge">bool</code>. Inference is no longer parser convenience. It is a semantic result stored on a symbol.</p>
+
+<h1 id="diagnostics-are-an-api"><a href="#diagnostics-are-an-api"></a>Diagnostics are an API</h1>
+
+<p>The analyzer introduced stable diagnostic codes from <code class="language-plaintext highlighter-rouge">FLECHA-S0001</code> onward. Duplicate declarations, unknown names, incompatible assignments, invalid operands, non-boolean conditions, bad return types, and invalid calls each received a distinct identity.</p>
+
+<p>We also retained exact source ranges on identifiers and expressions. Reporting “something is wrong in this function” is easy. Underlining precisely the second declaration of <code class="language-plaintext highlighter-rouge">value</code> is the useful part.</p>
+
+<p>After an error, the analyzer produces an internal error type. This lets independent statements continue to be checked without generating a cascade of nonsense derived from the first failure.</p>
+
+<p>That choice made diagnostics part of the compiler’s architecture. A failed compilation should still produce structured, stable, useful output.</p>
+
+<h1 id="ownership-between-stages"><a href="#ownership-between-stages"></a>Ownership between stages</h1>
+
+<p>The AST owns its syntax nodes. The semantic model owns symbols and scopes. Tables connecting syntax nodes to semantic objects contain non-owning pointers.</p>
+
+<p>Symbols and scopes are individually allocated, so moving the model does not invalidate their addresses. The model can answer questions about the AST, but it must not outlive that AST.</p>
+
+<p>This lifetime contract is specific, testable, and slightly boring—which is exactly what we want from compiler infrastructure.</p>
+
+<h1 id="conclusion"><a href="#conclusion"></a>Conclusion</h1>
+
+<p>With semantic analysis, Flecha crossed an important boundary. The compiler no longer recognized only grammatical programs. It understood declarations, bindings, types, calls, assignments, and returns.</p>
+
+<p>The semantic model is shaped for answering questions about source code. A code generator needs a stricter boundary: names already resolved, types already attached, and complex syntax normalized into a smaller set of operations.</p>
+
+<p><a href="/">Go back</a></p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-nc/3.0/deed.en_US">
+    <span>
+        <b>Alex Buschinelli</b>
+    </span>
+    
+    <span>© 2026</span>
+  </a>
+</footer>
+
+  
+</body>
+
+</html>

@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-GX2L7MWQLN"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-GX2L7MWQLN');
+</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+          .MathJax {
+  font-size: 180%; /* Adjust the percentage as needed */
+}
+  </style>
+
+  <title>Flecha Dev Log #9: From String Views to Owned Strings</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <script defer src="/assets/flecha-highlight.js"></script>
+  
+  <link href="/atom.xml" type="application/atom+xml" rel="alternate" title="ATOM Feed" /> <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Flecha Dev Log #9: From String Views to Owned Strings | Cecil Daemon’s Wish</title>
+<meta name="generator" content="Jekyll v4.3.3" />
+<meta property="og:title" content="Flecha Dev Log #9: From String Views to Owned Strings" />
+<meta name="author" content="J. Alex Buschinelli" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Introduction" />
+<meta property="og:description" content="Introduction" />
+<link rel="canonical" href="http://localhost:4000/flecha-from-string-views-to-owned-strings" />
+<meta property="og:url" content="http://localhost:4000/flecha-from-string-views-to-owned-strings" />
+<meta property="og:site_name" content="Cecil Daemon’s Wish" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-12-27T00:00:00-03:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Flecha Dev Log #9: From String Views to Owned Strings" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"J. Alex Buschinelli","url":"https://alexbsec.github.io/"},"dateModified":"2024-12-27T00:00:00-03:00","datePublished":"2024-12-27T00:00:00-03:00","description":"Introduction","headline":"Flecha Dev Log #9: From String Views to Owned Strings","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/flecha-from-string-views-to-owned-strings"},"url":"http://localhost:4000/flecha-from-string-views-to-owned-strings"}</script>
+<!-- End Jekyll SEO tag -->
+
+</head>
+
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    
+    <div style="display: flex; justify-content: center; align-items: center; text-decoration: none;">
+      <a href="/" style="display: flex; align-items: center; text-decoration: none;">
+          <img src="/assets/cecil.gif" alt="Cecil Daemon" style="margin-right: 20px;"/>
+          
+          
+          <h1>cecil@celestial:/flecha-from-string-views-to-owned-strings $</h1>
+      
+      </a>
+  </div>
+  <br>
+    </a>
+    <div class="header-links">
+      <a href="/"><h2 class="header-link">Home</h2></a>
+<a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+<a href="/atom.xml"><h2 class="header-link">RSS</h2></a>
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Flecha Dev Log #9: From String Views to Owned Strings</h2>
+  <time datetime="2024-12-27T00:00:00-03:00" class="by-line">27 Dec 2024</time>
+  <p>Estimated read time: 3 minutes</p>
+  <h1 id="introduction"><a href="#intro"></a>Introduction</h1>
+
+<p>Hi folks!</p>
+
+<p>Flecha had an immutable <code class="language-plaintext highlighter-rouge">stringv</code>: a pointer and a byte length that could refer to static or externally owned text without allocating.</p>
+
+<p>Views are wonderful until we need to create new text.</p>
+
+<p><code class="language-plaintext highlighter-rouge">stringv</code> provides useful checked operations, while <code class="language-plaintext highlighter-rouge">string</code> is an immutable value that owns its allocation.</p>
+
+<p>Together, they forced us to separate text, storage, and ownership clearly.</p>
+
+<h1 id="safe-operations-on-a-view"><a href="#safe-operations-on-a-view"></a>Safe operations on a view</h1>
+
+<p>The first view operations were intentionally small:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">i32 main() {
+    text := "flecha";
+
+    stdoutln(text.len());
+    stdoutln(text.at(0));
+    stdoutln(text[5]);
+    stdoutln(text.substr(1, 3));
+
+    return 0;
+}</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">len()</code> returns the byte length. <code class="language-plaintext highlighter-rouge">at(index)</code> and indexing return a checked byte-sized <code class="language-plaintext highlighter-rouge">char</code>. <code class="language-plaintext highlighter-rouge">substr(start, count)</code> creates another allocation-free view.</p>
+
+<p>Bounds were not disabled simply because Flecha is a systems language. Invalid dynamic indices and ranges call the runtime, print a diagnostic, and terminate instead of performing an out-of-bounds access.</p>
+
+<p>The substring check uses the equivalent of <code class="language-plaintext highlighter-rouge">count &lt;= length - start</code> after verifying <code class="language-plaintext highlighter-rouge">start &lt;= length</code>. That avoids overflowing <code class="language-plaintext highlighter-rouge">start + count</code> during the check itself. Even error paths need arithmetic rules.</p>
+
+<h1 id="an-owner-has-a-different-contract"><a href="#an-owner-has-a-different-contract"></a>An owner has a different contract</h1>
+
+<p>An owning <code class="language-plaintext highlighter-rouge">string</code> stores a data pointer, byte length, and capacity. The allocation is null-terminated for interoperability, but the explicit length remains authoritative. Embedded null bytes are valid.</p>
+
+<p>A literal is still a <code class="language-plaintext highlighter-rouge">stringv</code>. Assigning one to <code class="language-plaintext highlighter-rouge">string</code> creates an owning copy:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">string greeting = "hello";
+string copied = greeting;
+string message = greeting + ", Flecha";
+</code></pre></div></div>
+
+<p>String contents are immutable. Concatenation creates a new owner rather than modifying an operand in place.</p>
+
+<p>That gave values predictable behavior while leaving room for implementation optimizations later.</p>
+
+<h1 id="conversions-show-the-cost"><a href="#conversions-show-the-cost"></a>Conversions show the cost</h1>
+
+<p>Converting a view into an owner allocates and copies. Converting an owner into a view does neither:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">stringv view = "flecha";
+
+string owned = view.string();
+string same = view.cast&lt;string&gt;;
+
+stringv borrowed = owned.view();
+stringv sameView = owned.cast&lt;stringv&gt;;</code></pre></div></div>
+
+<p>The named methods are preferred in ordinary source because <code class="language-plaintext highlighter-rouge">string()</code> makes ownership creation conspicuous and <code class="language-plaintext highlighter-rouge">view()</code> communicates non-owning access. Generic conversion code can use the symmetrical cast forms.</p>
+
+<p>We were beginning to build a vocabulary where cost and ownership are visible in the program, not buried in a runtime convention.</p>
+
+<h1 id="the-first-value-semantics"><a href="#the-first-value-semantics"></a>The first value semantics</h1>
+
+<p>The initial implementation chose predictable copy semantics:</p>
+
+<ul>
+  <li>initializing or assigning from an owning string creates an independent value;</li>
+  <li>replacing a destination destroys its previous allocation only after the replacement succeeds;</li>
+  <li>an owning parameter receives an owned value;</li>
+  <li>returning an owner transfers the result to the caller;</li>
+  <li>a view never destroys storage.</li>
+</ul>
+
+<p>Every owned local is destroyed exactly once on normal fallthrough and on control-flow exits through <code class="language-plaintext highlighter-rouge">return</code>, <code class="language-plaintext highlighter-rouge">break</code>, <code class="language-plaintext highlighter-rouge">proceed</code>, and <code class="language-plaintext highlighter-rouge">jumpto</code>.</p>
+
+<p>That last line made code generation much more interesting. Cleanup was no longer something we could append to the end of a function. Every edge leaving a value’s lexical lifetime had to perform the appropriate destruction.</p>
+
+<p>Move semantics could later remove unnecessary copies, but only if observable behavior stayed coherent. We chose a clear model first and optimization second.</p>
+
+<h1 id="lifetime-rules-arrive-early"><a href="#lifetime-rules-arrive-early"></a>Lifetime rules arrive early</h1>
+
+<p>A view into an owning string cannot outlive that owner. The compiler conservatively rejected a local owning string’s view escaping its scope.</p>
+
+<p>Static literals were different: their bytes live for the program’s duration. Views arriving through parameters also have storage controlled by the caller’s context.</p>
+
+<p>We did not yet have a general borrow system, so the safe decision was to reject cases the compiler could not prove. That is a recurring Flecha rule: incomplete analysis should narrow accepted programs, not quietly widen unsafe behavior.</p>
+
+<h1 id="an-api-style-emerges"><a href="#an-api-style-emerges"></a>An API style emerges</h1>
+
+<p>This work also documented a naming convention for built-in and library APIs:</p>
+
+<ul>
+  <li>member functions use <code class="language-plaintext highlighter-rouge">camelCase</code>, such as <code class="language-plaintext highlighter-rouge">startsWith()</code>;</li>
+  <li>free functions use <code class="language-plaintext highlighter-rouge">snake_case</code>, such as <code class="language-plaintext highlighter-rouge">read_line()</code>;</li>
+  <li>single-word names such as <code class="language-plaintext highlighter-rouge">len</code>, <code class="language-plaintext highlighter-rouge">at</code>, and <code class="language-plaintext highlighter-rouge">stdoutln</code> stay simple.</li>
+</ul>
+
+<p>Runtime C symbols keep their ABI-specific <code class="language-plaintext highlighter-rouge">flecha_runtime_v1_</code> prefix. Implementation naming and idiomatic Flecha naming are separate concerns.</p>
+
+<h1 id="conclusion"><a href="#conclusion"></a>Conclusion</h1>
+
+<p>The two string types have complementary jobs. <code class="language-plaintext highlighter-rouge">stringv</code> provides cheap, checked observation. <code class="language-plaintext highlighter-rouge">string</code> provides ownership, concatenation, copying, returning, and deterministic cleanup.</p>
+
+<p>The distinction keeps storage cost visible: views observe bytes, while owners are responsible for keeping and releasing them.</p>
+
+<p><a href="/">Go back</a></p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-nc/3.0/deed.en_US">
+    <span>
+        <b>Alex Buschinelli</b>
+    </span>
+    
+    <span>© 2026</span>
+  </a>
+</footer>
+
+  
+</body>
+
+</html>

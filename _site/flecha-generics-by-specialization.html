@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-GX2L7MWQLN"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-GX2L7MWQLN');
+</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+          .MathJax {
+  font-size: 180%; /* Adjust the percentage as needed */
+}
+  </style>
+
+  <title>Flecha Dev Log #22: Generics by Specialization</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <script defer src="/assets/flecha-highlight.js"></script>
+  
+  <link href="/atom.xml" type="application/atom+xml" rel="alternate" title="ATOM Feed" /> <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Flecha Dev Log #22: Generics by Specialization | Cecil Daemon’s Wish</title>
+<meta name="generator" content="Jekyll v4.3.3" />
+<meta property="og:title" content="Flecha Dev Log #22: Generics by Specialization" />
+<meta name="author" content="J. Alex Buschinelli" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Introduction" />
+<meta property="og:description" content="Introduction" />
+<link rel="canonical" href="http://localhost:4000/flecha-generics-by-specialization" />
+<meta property="og:url" content="http://localhost:4000/flecha-generics-by-specialization" />
+<meta property="og:site_name" content="Cecil Daemon’s Wish" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-11-19T00:00:00-03:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Flecha Dev Log #22: Generics by Specialization" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"J. Alex Buschinelli","url":"https://alexbsec.github.io/"},"dateModified":"2025-11-19T00:00:00-03:00","datePublished":"2025-11-19T00:00:00-03:00","description":"Introduction","headline":"Flecha Dev Log #22: Generics by Specialization","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/flecha-generics-by-specialization"},"url":"http://localhost:4000/flecha-generics-by-specialization"}</script>
+<!-- End Jekyll SEO tag -->
+
+</head>
+
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    
+    <div style="display: flex; justify-content: center; align-items: center; text-decoration: none;">
+      <a href="/" style="display: flex; align-items: center; text-decoration: none;">
+          <img src="/assets/cecil.gif" alt="Cecil Daemon" style="margin-right: 20px;"/>
+          
+          
+          <h1>cecil@celestial:/flecha-generics-by-specialization $</h1>
+      
+      </a>
+  </div>
+  <br>
+    </a>
+    <div class="header-links">
+      <a href="/"><h2 class="header-link">Home</h2></a>
+<a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+<a href="/atom.xml"><h2 class="header-link">RSS</h2></a>
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Flecha Dev Log #22: Generics by Specialization</h2>
+  <time datetime="2025-11-19T00:00:00-03:00" class="by-line">19 Nov 2025</time>
+  <p>Estimated read time: 3 minutes</p>
+  <h1 id="introduction"><a href="#intro"></a>Introduction</h1>
+
+<p>Hi folks!</p>
+
+<p>Once modules let us build reusable libraries, repetition became much easier to see. A container for <code class="language-plaintext highlighter-rouge">i32</code> and the same container for <code class="language-plaintext highlighter-rouge">u64</code> differed mostly in spelling, yet the compiler treated them as unrelated implementations.</p>
+
+<p>Flecha needed generics, but it also needed them to fit the language we already had: concrete native types, deterministic layout, ownership analysis, and no hidden runtime type machinery.</p>
+
+<p>The answer was compile-time specialization.</p>
+
+<h1 id="explicit-type-arguments"><a href="#explicit-type-arguments"></a>Explicit type arguments</h1>
+
+<p>A generic function declares its type parameters beside its name:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">T identity&lt;T&gt;(T value) {
+    return value;
+}
+
+(A, B) pair&lt;A, B&gt;(A first, B second) {
+    return (first, second);
+}
+
+i32 answer = identity&lt;i32&gt;(42);
+name, count := pair&lt;stringv, usize&gt;("arrows", 3);</code></pre></div></div>
+
+<p>Type arguments are explicit. Flecha does not infer them from call arguments. That keeps call sites readable and makes specialization deterministic before ordinary overload and conversion rules do their work.</p>
+
+<p>Type parameters can appear inside compound types, so <code class="language-plaintext highlighter-rouge">[]T</code>, <code class="language-plaintext highlighter-rouge">*T</code>, tuples containing <code class="language-plaintext highlighter-rouge">T</code>, and structures parameterized by <code class="language-plaintext highlighter-rouge">T</code> all use the same mechanism.</p>
+
+<h1 id="generic-structures"><a href="#generic-structures"></a>Generic structures</h1>
+
+<p>Structures and their methods can be generic too:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">structure Box&lt;T&gt; {
+    T value;
+};
+
+T Box&lt;T&gt;::get(&amp;const self) {
+    return self-&gt;value;
+}
+
+void Box&lt;T&gt;::set(&amp;self, T value) {
+    self-&gt;value = value;
+}</code></pre></div></div>
+
+<p>The method repeats the owner’s type parameters. It makes the relationship explicit in source and gives the compiler a complete declaration even when method bodies are discovered separately from the structure.</p>
+
+<p>A method may also introduce its own type parameters. Owner parameters and method parameters form an ordered specialization key, so the compiler knows exactly which concrete function it is checking.</p>
+
+<h1 id="templates-do-not-reach-the-backend"><a href="#templates-do-not-reach-the-backend"></a>Templates do not reach the backend</h1>
+
+<p>The compiler parses and registers a generic declaration, but it does not lower an abstract <code class="language-plaintext highlighter-rouge">T</code> to LLVM.</p>
+
+<p>When code asks for <code class="language-plaintext highlighter-rouge">Box&amp;lt;i32&amp;gt;</code>, a pre-semantic expansion phase creates a concrete structure and concrete methods. Those declarations then pass through the ordinary pipeline: type checking, initialization rules, borrow checking, allocation analysis, bound IR, lowering, and code generation.</p>
+
+<p>That was the important architectural decision. Generics do not create a parallel compiler inside the compiler. They materialize ordinary Flecha declarations early enough that every existing safety check can reason about concrete types.</p>
+
+<p>The same declaration plus the same ordered type arguments maps to one cached specialization, including when it is reached through different modules. Nested applications such as <code class="language-plaintext highlighter-rouge">Box&amp;lt;Box&amp;lt;i32&amp;gt;&amp;gt;</code> naturally build on the same rule.</p>
+
+<h1 id="errors-appear-where-types-become-concrete"><a href="#errors-at-instantiation"></a>Errors appear where types become concrete</h1>
+
+<p>Generic syntax and non-dependent facts can be checked when the template is loaded. Operations whose validity depends on <code class="language-plaintext highlighter-rouge">T</code> are checked when a specialization is requested.</p>
+
+<p>If a body copies <code class="language-plaintext highlighter-rouge">T</code>, instantiating it with a noncopyable type fails. If it needs a default value, a type without valid default construction fails. The diagnostic points to the concrete use and the generic operation that could not be satisfied.</p>
+
+<p>There is no constraint or trait language yet. Instead of pretending every <code class="language-plaintext highlighter-rouge">T</code> supports every operation, Flecha validates the actual body under each concrete substitution.</p>
+
+<h1 id="expansion-is-bounded"><a href="#bounded-expansion"></a>Expansion is bounded</h1>
+
+<p>Compile-time generation needs limits just as runtime allocation does. Flecha caps specialization ancestry, the number of materialized declarations, and generated token volume.</p>
+
+<p>A recursively expanding template therefore ends in a compiler diagnostic rather than an exhausted machine. These limits are part of making the compiler’s behavior predictable, not merely defensive implementation details.</p>
+
+<h1 id="conclusion"><a href="#conclusion"></a>Conclusion</h1>
+
+<p>Flecha generics are deliberately concrete. Source code is reusable, but every generated program is built from specific layouts and specific operations that the normal compiler can verify.</p>
+
+<p>The result feels pleasantly small at the surface: add <code class="language-plaintext highlighter-rouge">&amp;lt;T&amp;gt;</code>, instantiate it explicitly, and let the same semantic machinery prove the specialization valid.</p>
+
+<p>I hope you liked this write-up and learned something new. As always, don’t forget to do your <strong>research!</strong></p>
+
+<p><a href="/">Go back</a></p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-nc/3.0/deed.en_US">
+    <span>
+        <b>Alex Buschinelli</b>
+    </span>
+    
+    <span>© 2026</span>
+  </a>
+</footer>
+
+  
+</body>
+
+</html>

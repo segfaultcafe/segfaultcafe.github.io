@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-GX2L7MWQLN"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-GX2L7MWQLN');
+</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+          .MathJax {
+  font-size: 180%; /* Adjust the percentage as needed */
+}
+  </style>
+
+  <title>Flecha Dev Log #33: A Complete Development Environment</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <script defer src="/assets/flecha-highlight.js"></script>
+  
+  <link href="/atom.xml" type="application/atom+xml" rel="alternate" title="ATOM Feed" /> <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Flecha Dev Log #33: A Complete Development Environment | Cecil Daemon’s Wish</title>
+<meta name="generator" content="Jekyll v4.3.3" />
+<meta property="og:title" content="Flecha Dev Log #33: A Complete Development Environment" />
+<meta name="author" content="J. Alex Buschinelli" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Introduction" />
+<meta property="og:description" content="Introduction" />
+<link rel="canonical" href="http://localhost:4000/flecha-a-complete-development-environment" />
+<meta property="og:url" content="http://localhost:4000/flecha-a-complete-development-environment" />
+<meta property="og:site_name" content="Cecil Daemon’s Wish" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-10-11T00:00:00-03:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Flecha Dev Log #33: A Complete Development Environment" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"J. Alex Buschinelli","url":"https://alexbsec.github.io/"},"dateModified":"2026-10-11T00:00:00-03:00","datePublished":"2026-10-11T00:00:00-03:00","description":"Introduction","headline":"Flecha Dev Log #33: A Complete Development Environment","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/flecha-a-complete-development-environment"},"url":"http://localhost:4000/flecha-a-complete-development-environment"}</script>
+<!-- End Jekyll SEO tag -->
+
+</head>
+
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    
+    <div style="display: flex; justify-content: center; align-items: center; text-decoration: none;">
+      <a href="/" style="display: flex; align-items: center; text-decoration: none;">
+          <img src="/assets/cecil.gif" alt="Cecil Daemon" style="margin-right: 20px;"/>
+          
+          
+          <h1>cecil@celestial:/flecha-a-complete-development-environment $</h1>
+      
+      </a>
+  </div>
+  <br>
+    </a>
+    <div class="header-links">
+      <a href="/"><h2 class="header-link">Home</h2></a>
+<a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+<a href="/atom.xml"><h2 class="header-link">RSS</h2></a>
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Flecha Dev Log #33: A Complete Development Environment</h2>
+  <time datetime="2026-10-11T00:00:00-03:00" class="by-line">11 Oct 2026</time>
+  <p>Estimated read time: 3 minutes</p>
+  <h1 id="introduction"><a href="#intro"></a>Introduction</h1>
+
+<p>Hi folks!</p>
+
+<p>A compiler rarely lives alone. A real session also needs the standard library, project tool, linker, editor support, and a place where all those pieces agree about paths and versions.</p>
+
+<p>When that agreement depends on the original repository or one developer’s shell configuration, we do not have an environment. We have a collection of local coincidences.</p>
+
+<p>Flecha now discovers its installed pieces as one toolchain and can reproduce the entire setup inside a disposable development sandbox.</p>
+
+<h1 id="the-installed-standard-library"><a href="#the-installed-standard-library"></a>The installed standard library</h1>
+
+<p>Longbow projects can import the bundled standard library without manually mapping its source directory:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">module main;
+
+@imports
+    :: lib::std::io::filesystem;
+
+i32 main() {
+    contents, err := filesystem::read_file("message.txt");
+    if err != none {
+        return 1;
+    }
+
+    stdoutln(contents);
+    return 0;
+}</code></pre></div></div>
+
+<p>The installed Longbow executable locates its version-matched <code class="language-plaintext highlighter-rouge">lib::std</code> relative to the toolchain layout. Moving a complete installation keeps the relationship intact because discovery does not point back to the checkout that produced it.</p>
+
+<p>Explicit project libraries still use configured names. Automatic discovery is reserved for the standard library shipped with the same toolchain, where a predictable default removes setup without hiding dependency resolution.</p>
+
+<h1 id="destructuring-that-fits-real-apis"><a href="#destructuring-that-fits-real-apis"></a>Destructuring that fits real APIs</h1>
+
+<p>As standard APIs returned more tuples, bindings needed to handle the common case where one result is new and another already exists:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">quotient, err := divide(20, 3);
+next, err := divide(42, 5);
+
+i32 first, second = (20, 22);
+first, i32 third = (second, 42);</code></pre></div></div>
+
+<p>With <code class="language-plaintext highlighter-rouge">:=</code>, at least one non-blank name must be new in the current scope. New names are declared and existing names in that scope are assigned. With <code class="language-plaintext highlighter-rouge">=</code>, an explicit type introduces a declaration while an untyped name refers to an existing destination.</p>
+
+<p>The entire right-hand side evaluates once before any store occurs. That preserves swaps, lets old values participate in the expression, and prevents one destination from changing what a later destination receives.</p>
+
+<p>This looks like a syntax improvement, but it plugs directly into definite assignment, cleanup, and borrow checking. Each new or existing binding must leave those analyses with one unambiguous state.</p>
+
+<h1 id="the-sandbox"><a href="#the-sandbox"></a>The sandbox</h1>
+
+<p>The Docker development sandbox builds the current checkout and installs the result into a clean Linux environment:</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>make sandbox
+make enter-sandbox
+</code></pre></div></div>
+
+<p>Inside it, <code class="language-plaintext highlighter-rouge">flecha</code> and <code class="language-plaintext highlighter-rouge">longbow</code> are on <code class="language-plaintext highlighter-rouge">PATH</code>, the installed standard library is discovered automatically, Clang 18 is available for native linking, and a starter project waits in <code class="language-plaintext highlighter-rouge">/workspace/hello</code>:</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cd</span> /workspace/hello
+longbow check
+longbow run
+nvim src/main.fl
+</code></pre></div></div>
+
+<p>The shell runs as an unprivileged <code class="language-plaintext highlighter-rouge">flecha</code> user. The repository is mounted read-only, so the environment can inspect current sources without quietly changing the host checkout.</p>
+
+<h1 id="editor-configuration-without-host-pollution"><a href="#editor-configuration-without-host-pollution"></a>Editor configuration without host pollution</h1>
+
+<p>When a host Neovim configuration exists, the sandbox copies it into the disposable container. Plugin managers may update lockfiles, caches, and downloaded plugins there without touching the host.</p>
+
+<p>If no configuration exists, a minimal one enables Flecha file detection and syntax highlighting. The installed Neovim plugin and the current compiler therefore meet in the same isolated session.</p>
+
+<p>Rebuilding the sandbox replaces the container. Anything important must be copied out, which is a useful reminder that the environment is reproducible by design, not precious state to maintain forever.</p>
+
+<h1 id="one-command-tests-many-contracts"><a href="#one-command-tests-many-contracts"></a>One command tests many contracts</h1>
+
+<p><code class="language-plaintext highlighter-rouge">make sandbox</code> exercises more than Docker packaging. It checks that installation paths are relocatable, Longbow finds the standard library, native linking prerequisites are sufficient, editor files are installable, permissions are reasonable, and a fresh user can build a real project.</p>
+
+<p>That is the value of bringing the pieces together: the environment tests the boundaries between components, where otherwise-correct tools most often disagree.</p>
+
+<h1 id="conclusion"><a href="#conclusion"></a>Conclusion</h1>
+
+<p>Flecha’s development environment now has a coherent shape. The toolchain finds its own standard library, tuple results fit natural binding patterns, and one disposable sandbox brings compiler, Longbow, linker, editor support, and a starter project together.</p>
+
+<p>The result is a wonderfully practical milestone: enter the environment and write Flecha. The setup itself no longer needs to be the experiment.</p>
+
+<p>I hope you liked this write-up and learned something new. As always, don’t forget to do your <strong>research!</strong></p>
+
+<p><a href="/">Go back</a></p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-nc/3.0/deed.en_US">
+    <span>
+        <b>Alex Buschinelli</b>
+    </span>
+    
+    <span>© 2026</span>
+  </a>
+</footer>
+
+  
+</body>
+
+</html>

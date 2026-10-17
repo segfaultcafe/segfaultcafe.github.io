@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-GX2L7MWQLN"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-GX2L7MWQLN');
+</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+          .MathJax {
+  font-size: 180%; /* Adjust the percentage as needed */
+}
+  </style>
+
+  <title>Flecha Dev Log #10: Definite Assignment and a Memory Model</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <script defer src="/assets/flecha-highlight.js"></script>
+  
+  <link href="/atom.xml" type="application/atom+xml" rel="alternate" title="ATOM Feed" /> <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Flecha Dev Log #10: Definite Assignment and a Memory Model | Cecil Daemon’s Wish</title>
+<meta name="generator" content="Jekyll v4.3.3" />
+<meta property="og:title" content="Flecha Dev Log #10: Definite Assignment and a Memory Model" />
+<meta name="author" content="J. Alex Buschinelli" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Introduction" />
+<meta property="og:description" content="Introduction" />
+<link rel="canonical" href="http://localhost:4000/flecha-definite-assignment-and-the-memory-model" />
+<meta property="og:url" content="http://localhost:4000/flecha-definite-assignment-and-the-memory-model" />
+<meta property="og:site_name" content="Cecil Daemon’s Wish" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-04-08T00:00:00-03:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Flecha Dev Log #10: Definite Assignment and a Memory Model" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"J. Alex Buschinelli","url":"https://alexbsec.github.io/"},"dateModified":"2025-04-08T00:00:00-03:00","datePublished":"2025-04-08T00:00:00-03:00","description":"Introduction","headline":"Flecha Dev Log #10: Definite Assignment and a Memory Model","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/flecha-definite-assignment-and-the-memory-model"},"url":"http://localhost:4000/flecha-definite-assignment-and-the-memory-model"}</script>
+<!-- End Jekyll SEO tag -->
+
+</head>
+
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    
+    <div style="display: flex; justify-content: center; align-items: center; text-decoration: none;">
+      <a href="/" style="display: flex; align-items: center; text-decoration: none;">
+          <img src="/assets/cecil.gif" alt="Cecil Daemon" style="margin-right: 20px;"/>
+          
+          
+          <h1>cecil@celestial:/flecha-definite-assignment-and-the-memory-model $</h1>
+      
+      </a>
+  </div>
+  <br>
+    </a>
+    <div class="header-links">
+      <a href="/"><h2 class="header-link">Home</h2></a>
+<a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+<a href="/atom.xml"><h2 class="header-link">RSS</h2></a>
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Flecha Dev Log #10: Definite Assignment and a Memory Model</h2>
+  <time datetime="2025-04-08T00:00:00-03:00" class="by-line">08 Apr 2025</time>
+  <p>Estimated read time: 5 minutes</p>
+  <h1 id="introduction"><a href="#intro"></a>Introduction</h1>
+
+<p>Hi folks!</p>
+
+<p>Flecha values had become more interesting. Scalars could wait for a later assignment. Owning strings needed cleanup. Branches, loops, short-circuit operators, <code class="language-plaintext highlighter-rouge">break</code>, <code class="language-plaintext highlighter-rouge">proceed</code>, and <code class="language-plaintext highlighter-rouge">jumpto</code> could all change which statements actually ran.</p>
+
+<p>A local check such as “did we see an assignment above this line?” was no longer enough.</p>
+
+<p>Definite-assignment analysis follows reachable control flow, while the memory model separates storage, ownership, and access.</p>
+
+<h1 id="uninitialized-is-not-zero"><a href="#uninitialized-is-not-zero"></a>Uninitialized is not zero</h1>
+
+<p>Flecha permits an explicit typed declaration without an initializer:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">i32 answer;
+string message;
+
+answer = 42;
+message = "ready";</code></pre></div></div>
+
+<p>This does not request a zero value. It creates a variable that cannot be read until every reachable path has assigned it.</p>
+
+<p><code class="language-plaintext highlighter-rouge">none</code> is different:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">i32 pending;
+i32 zero = none;</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">pending</code> has no readable value yet. <code class="language-plaintext highlighter-rouge">zero</code> is initialized to its type’s defined zero value. Keeping those states distinct avoids hiding initialization behind a storage detail.</p>
+
+<p>Inferred declarations still require an initializer because there is no value from which to infer their type.</p>
+
+<h1 id="every-reachable-path"><a href="#every-reachable-path"></a>Every reachable path</h1>
+
+<p>This function is valid:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">i32 choose(bool condition) {
+    i32 value;
+
+    if condition {
+        return 0;
+    } else {
+        value = 42;
+    }
+
+    return value;
+}</code></pre></div></div>
+
+<p>The branch that reaches the final return assigned <code class="language-plaintext highlighter-rouge">value</code>. The other branch terminated, so it contributes no fallthrough state.</p>
+
+<p>At a control-flow join, the analysis marks a variable initialized only when it is initialized on every reachable predecessor. Parameters begin initialized. Each declaration starts a fresh state. Symbols—not textual names—identify variables, so shadowed declarations remain independent.</p>
+
+<p>The compiler builds a control-flow graph and uses a worklist until the initialization facts stop changing. Diagnostics are emitted after convergence in source order, once per offending read.</p>
+
+<h1 id="loops-are-conservative"><a href="#loops-are-conservative"></a>Loops are conservative</h1>
+
+<p>An assignment inside a loop does not normally initialize a value after the loop:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">i32 value;
+
+while condition {
+    value = 42;
+}
+
+// stdoutln(value); // may be uninitialized</code></pre></div></div>
+
+<p>The loop may execute zero times. Even if the condition is literally <code class="language-plaintext highlighter-rouge">true</code>, this pass does not perform constant folding. Its job is control-flow initialization, not proving every fact in the program.</p>
+
+<p><code class="language-plaintext highlighter-rouge">and</code> and <code class="language-plaintext highlighter-rouge">or</code> also create conditional edges because their right side may not execute. Integer bitwise operations evaluate both sides and therefore follow ordinary expression order.</p>
+
+<p><code class="language-plaintext highlighter-rouge">proceed</code> targets the innermost loop condition, <code class="language-plaintext highlighter-rouge">break</code> targets its exit, and an <code class="language-plaintext highlighter-rouge">also</code> clause runs only after normal body completion. These are language rules translated into graph edges.</p>
+
+<h1 id="jumps-make-it-real"><a href="#jumps-make-it-real"></a>Jumps make it real</h1>
+
+<p>Flecha’s named positions and <code class="language-plaintext highlighter-rouge">jumpto</code> made a simple tree walk impossible:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">while run {
+    jumpto use;
+    i32 value = 42;
+
+    #use
+    stdoutln(value);
+}</code></pre></div></div>
+
+<p>The jump skips the initializer, so the read is rejected. Forward and backward jumps connect directly to their resolved positions. Leaving a scope removes its locals from the initialization state; jumping backward cannot resurrect an earlier activation’s value.</p>
+
+<p>Unreachable reads do not produce definite-assignment errors, although ordinary name resolution and type checking still apply to unreachable source. Each analysis keeps one responsibility.</p>
+
+<h1 id="cleanup-needs-control-flow-too"><a href="#cleanup-needs-control-flow-too"></a>Cleanup needs control flow too</h1>
+
+<p>Owning strings added another dimension. A jump can skip a declaration, revisit a scope, or exit after a temporary has been created.</p>
+
+<p>String slots begin in a null-storage state so cleanup remains safe even when execution skips their declaration. Code generation cleans every owning slot that may be live on an outgoing edge. Transfers clear the source storage, preventing a later cleanup from freeing the same allocation twice.</p>
+
+<p>This was a valuable discovery: definite assignment answers whether a read is legal, but destruction also needs to know whether an owning slot currently contains a resource.</p>
+
+<p>The two analyses are related. They are not interchangeable.</p>
+
+<h1 id="writing-the-memory-model-down"><a href="#writing-the-memory-model-down"></a>Writing the memory model down</h1>
+
+<p>Once control flow, initialization, and cleanup met, we paused to document the larger direction before adding pointers, references, arrays, slices, and general ownership.</p>
+
+<p>The memory-model draft separated three concepts that are often mixed together:</p>
+
+<ul>
+  <li><strong>storage</strong>: where bytes live;</li>
+  <li><strong>ownership</strong>: who must release a resource;</li>
+  <li><strong>access</strong>: who may read or modify the value.</li>
+</ul>
+
+<p>A stack variable can own a heap allocation. A raw pointer can point into stack, heap, static, or external storage without owning any of it. A view can access storage without extending its lifetime.</p>
+
+<p>This separation gave future features a vocabulary precise enough to disagree with.</p>
+
+<h1 id="implemented-rules-and-proposals"><a href="#implemented-rules-and-proposals"></a>Implemented rules and proposals</h1>
+
+<p>The document was intentionally labeled a design draft. Definite assignment and existing string cleanup described implemented behavior. Move-by-default ownership, raw allocation tracking, <code class="language-plaintext highlighter-rouge">defer</code>, checked references, arrays, and slices were proposals and an implementation order.</p>
+
+<p>Several decisions were already firm:</p>
+
+<ul>
+  <li>unsafe operations would remain explicit;</li>
+  <li>an <code class="language-plaintext highlighter-rouge">unsafe</code> block would not disable type checking, initialization checks, or ordinary bounds checks;</li>
+  <li>raw pointers would not imply ownership or automatic cleanup;</li>
+  <li>safe references would borrow storage rather than allocate it;</li>
+  <li>deterministic destruction would cover every scope-exit edge;</li>
+  <li>fixed-size arrays would store elements inline;</li>
+  <li>slices would be non-owning pointer-and-length views;</li>
+  <li>allocation failure would be explicit instead of crossing the runtime ABI as a C++ exception.</li>
+</ul>
+
+<p>Most importantly, we wrote down what was still unresolved. A design document should not disguise an open problem as an implementation guarantee.</p>
+
+<h1 id="conclusion"><a href="#conclusion"></a>Conclusion</h1>
+
+<p>The first Flecha season began by asking how source code should look inside a compiler. It ends with a control-flow analysis and a written model for storage, ownership, and access.</p>
+
+<p>That progression was not accidental. Memory safety cannot be bolted onto a compiler that does not already understand symbols, types, branches, lifetimes of compiler objects, and reachable paths.</p>
+
+<p>Together, the vocabulary and analysis make memory rules concrete enough to implement, test, and diagnose.</p>
+
+<p>I hope you liked this write-up and learned something new. As always, don’t forget to do your <strong>research!</strong></p>
+
+<p><a href="/">Go back</a></p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-nc/3.0/deed.en_US">
+    <span>
+        <b>Alex Buschinelli</b>
+    </span>
+    
+    <span>© 2026</span>
+  </a>
+</footer>
+
+  
+</body>
+
+</html>

@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-GX2L7MWQLN"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-GX2L7MWQLN');
+</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+          .MathJax {
+  font-size: 180%; /* Adjust the percentage as needed */
+}
+  </style>
+
+  <title>Flecha Dev Log #0: Deciding to Build a Programming Language</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <script defer src="/assets/flecha-highlight.js"></script>
+  
+  <link href="/atom.xml" type="application/atom+xml" rel="alternate" title="ATOM Feed" /> <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Flecha Dev Log #0: Deciding to Build a Programming Language | Cecil Daemon’s Wish</title>
+<meta name="generator" content="Jekyll v4.3.3" />
+<meta property="og:title" content="Flecha Dev Log #0: Deciding to Build a Programming Language" />
+<meta name="author" content="J. Alex Buschinelli" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Introduction" />
+<meta property="og:description" content="Introduction" />
+<link rel="canonical" href="http://localhost:4000/flecha-deciding-to-build-a-language" />
+<meta property="og:url" content="http://localhost:4000/flecha-deciding-to-build-a-language" />
+<meta property="og:site_name" content="Cecil Daemon’s Wish" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2024-04-03T00:00:00-03:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Flecha Dev Log #0: Deciding to Build a Programming Language" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"J. Alex Buschinelli","url":"https://alexbsec.github.io/"},"dateModified":"2024-04-03T00:00:00-03:00","datePublished":"2024-04-03T00:00:00-03:00","description":"Introduction","headline":"Flecha Dev Log #0: Deciding to Build a Programming Language","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/flecha-deciding-to-build-a-language"},"url":"http://localhost:4000/flecha-deciding-to-build-a-language"}</script>
+<!-- End Jekyll SEO tag -->
+
+</head>
+
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    
+    <div style="display: flex; justify-content: center; align-items: center; text-decoration: none;">
+      <a href="/" style="display: flex; align-items: center; text-decoration: none;">
+          <img src="/assets/cecil.gif" alt="Cecil Daemon" style="margin-right: 20px;"/>
+          
+          
+          <h1>cecil@celestial:/flecha-deciding-to-build-a-language $</h1>
+      
+      </a>
+  </div>
+  <br>
+    </a>
+    <div class="header-links">
+      <a href="/"><h2 class="header-link">Home</h2></a>
+<a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+<a href="/atom.xml"><h2 class="header-link">RSS</h2></a>
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Flecha Dev Log #0: Deciding to Build a Programming Language</h2>
+  <time datetime="2024-04-03T00:00:00-03:00" class="by-line">03 Apr 2024</time>
+  <p>Estimated read time: 6 minutes</p>
+  <h1 id="introduction"><a href="#intro"></a>Introduction</h1>
+
+<p>Hi folks!</p>
+
+<p>For a long time, this blog was where I documented security research, vulnerable machines, exploitation techniques, and the things I learned by taking software apart.</p>
+
+<p>Eventually, a different question started following us around:</p>
+
+<p><strong>What would we learn if, instead of only taking systems apart, we tried to build one from the language up?</strong></p>
+
+<p>Not a transpiler that quietly hands the difficult work to another source language. Not a parser that recognizes a few expressions and stops there. We wanted to build a statically typed systems language, follow it all the way to native code, and understand every boundary we crossed.</p>
+
+<p>That decision became Flecha.</p>
+
+<p>This is Dev Log #0 because there was no compiler architecture to describe yet. There was only a direction, a growing list of questions, and a second decision that mattered just as much: we would document the journey while it happened.</p>
+
+<p>Let’s jump right into it!</p>
+
+<h1 id="why-a-language"><a href="#why-a-language"></a>Why a language?</h1>
+
+<p>Building a programming language is an unreasonable amount of work if the only goal is to invent different punctuation.</p>
+
+<p>The interesting part is that a language forces us to connect subjects that are often learned separately:</p>
+
+<ul>
+  <li>parsing and grammar;</li>
+  <li>type systems and diagnostics;</li>
+  <li>control-flow and data-flow analysis;</li>
+  <li>memory layout and ownership;</li>
+  <li>ABIs, object files, and linkers;</li>
+  <li>runtimes and standard libraries;</li>
+  <li>build tools, packages, and editor support.</li>
+</ul>
+
+<p>A syntax decision eventually reaches machine code. A memory rule eventually becomes a diagnostic, a control-flow analysis, a runtime operation, or all three. A feature that looks beautiful in an example may become impossible to explain once it crosses a function boundary.</p>
+
+<p>That was exactly the kind of project we wanted.</p>
+
+<h1 id="the-direction"><a href="#the-direction"></a>The direction</h1>
+
+<p>The early description of Flecha was intentionally short:</p>
+
+<blockquote>
+  <p>A low-level, statically typed language for software that needs predictable execution, explicit control over memory, and direct access to native targets.</p>
+</blockquote>
+
+<p>We wanted the control associated with C-like languages while reducing accidental undefined behavior and improving types, diagnostics, and tooling.</p>
+
+<p>The goal was not to hide systems programming. Allocation, unsafe access, conversions, control transfer, and cleanup should remain visible enough that a reader can reason about the cost and behavior of nearby code.</p>
+
+<p>At the same time, “explicit” should not become an excuse for ceremony. A simple function should still look simple:</p>
+
+<div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">i32 add(i32 left, i32 right) {
+    return left + right;
+}
+
+i32 main() {
+    answer := add(20, 22);
+    return answer;
+}</code></pre></div></div>
+
+<p>That small example already contains several intended decisions. Function interfaces are statically typed. Local inference is available when the compiler already knows the answer. Execution is direct. There is no garbage-collected runtime waiting behind the return statement.</p>
+
+<h1 id="principles-before-features"><a href="#principles-before-features"></a>Principles before features</h1>
+
+<p>It is easy to begin a language by collecting features we like from other languages. We tried to begin with constraints instead.</p>
+
+<p>Flecha should provide:</p>
+
+<ul>
+  <li>deterministic execution without a garbage collector;</li>
+  <li>predictable data representation and calling conventions;</li>
+  <li>explicit unsafe boundaries;</li>
+  <li>strong static typing without an academic-looking surface;</li>
+  <li>visible conversions between distinct primitive types;</li>
+  <li>useful, source-oriented diagnostics;</li>
+  <li>native object and executable generation;</li>
+  <li>straightforward C interoperability;</li>
+  <li>a small enough core that the language might eventually compile itself.</li>
+</ul>
+
+<p>These principles did not answer every syntax question. They did give us a way to evaluate one.</p>
+
+<p>If an operation allocates, can the programmer see where ownership begins? If a conversion loses information, is that decision explicit? If code is unsafe, can a reviewer find the boundary? If the compiler rejects a program, can it explain why at the correct source location?</p>
+
+<p>Those questions became more durable than any first draft of the grammar.</p>
+
+<h1 id="non-goals-matter-too"><a href="#non-goals-matter-too"></a>Non-goals matter too</h1>
+
+<p>A new project can promise everything because nothing has collided yet. We wanted to state what Flecha would not attempt in its first core:</p>
+
+<ul>
+  <li>no classes or implementation inheritance;</li>
+  <li>no exception system;</li>
+  <li>no implicit garbage-collected runtime;</li>
+  <li>no hidden heap allocation as the default answer;</li>
+  <li>no generators, coroutines, or asynchronous functions in the first implementation;</li>
+  <li>no claim of a stable ABI while the language was still being discovered.</li>
+</ul>
+
+<p>Even sophisticated lifetime analysis was not something we could declare finished before writing the programs it needed to understand.</p>
+
+<p>These were not permanent judgments about what makes a good language. They were scope decisions. A small compiler with honest limits is more useful than a specification that promises ten years of work on its first page.</p>
+
+<h1 id="choosing-the-tools"><a href="#choosing-the-tools"></a>Choosing the tools</h1>
+
+<p>The first compiler would be written in modern C++.</p>
+
+<p>That choice kept us close to the operating system, exposed memory and ownership decisions inside the compiler itself, and gave us access to the LLVM ecosystem without adding another managed runtime to the toolchain.</p>
+
+<p>LLVM would handle target-specific instruction selection, object emission, and the optimization infrastructure we did not want to reinvent. Flecha would still own its semantics. LLVM should receive a program after names, types, conversions, and language control flow had already been decided.</p>
+
+<p>We also chose <code class="language-plaintext highlighter-rouge">.fl</code> for source files and <code class="language-plaintext highlighter-rouge">flecha</code> for the compiler command. The project finally had a name, a file, and a destination:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>main.fl → flecha → native program
+</code></pre></div></div>
+
+<p>Everything between those arrows still needed to be built.</p>
+
+<h1 id="why-document-now"><a href="#why-document-now"></a>Why document now?</h1>
+
+<p>Waiting until the language was “done” would have produced cleaner documentation and a worse account of how it was made.</p>
+
+<p>Compiler development is full of decisions that appear obvious after the surrounding architecture exists. We wanted to preserve the questions:</p>
+
+<ul>
+  <li>Why add a separate semantic model?</li>
+  <li>Why lower into another IR before LLVM?</li>
+  <li>Why represent a string as a view before adding an owner?</li>
+  <li>Why keep formatting in a runtime?</li>
+  <li>Why is uninitialized different from zero?</li>
+  <li>Which memory rules are implemented, and which are still proposals?</li>
+</ul>
+
+<p>So documentation became part of the development loop.</p>
+
+<p>The specification would describe the current direction. Design documents would say whether an idea was implemented, proposed, or unresolved. Tests would preserve behavior. Dev logs would tell the story that a reference manual cannot: what problem appeared, which alternatives mattered, and why one decision unlocked the next.</p>
+
+<p>This also meant allowing ourselves to change our minds publicly. Early syntax could disappear. A simple ownership rule could fail when loops arrived. A convenient feature could turn out to hide a cost we wanted visible.</p>
+
+<p>That is not the documentation going stale. That is the journey being documented honestly.</p>
+
+<h1 id="the-first-roadmap"><a href="#the-first-roadmap"></a>The first roadmap</h1>
+
+<p>The initial path was deliberately vertical:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>characters
+  → tokens
+  → syntax tree
+  → semantic meaning
+  → typed lowering
+  → LLVM IR
+  → native object
+  → executable
+</code></pre></div></div>
+
+<p>We did not want to design a huge language surface before proving that one small program could cross the entire pipeline.</p>
+
+<p>After that path worked, features could arrive with a demanding definition of “done”: syntax, semantics, lowering, code generation, diagnostics, tests, and documentation would all need to agree.</p>
+
+<p>The first concrete problem was obvious. Before Flecha could understand or compile a program, source code needed a shape inside the compiler.</p>
+
+<h1 id="conclusion"><a href="#conclusion"></a>Conclusion</h1>
+
+<p>Flecha began with curiosity more than certainty.</p>
+
+<p>We knew we wanted native code, explicit memory, strong types, visible costs, and useful diagnostics. We also knew the interesting decisions would appear only after those goals met real programs.</p>
+
+<p>Documenting the project from Dev Log #0 gives us a record of that movement—from intention, through implementation, to the awkward cases that force a language to become precise.</p>
+
+<p>There is plenty to build, plenty to break, and definitely plenty to research.</p>
+
+<p>That is where the compiler journey begins: tokens, a parser, and an abstract syntax tree.</p>
+
+<p>I hope you enjoy the journey. As always, don’t forget to do your <strong>research!</strong></p>
+
+<p><a href="/">Go back</a></p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-nc/3.0/deed.en_US">
+    <span>
+        <b>Alex Buschinelli</b>
+    </span>
+    
+    <span>© 2026</span>
+  </a>
+</footer>
+
+  
+</body>
+
+</html>

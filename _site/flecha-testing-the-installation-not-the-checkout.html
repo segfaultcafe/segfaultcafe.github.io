@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-GX2L7MWQLN"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-GX2L7MWQLN');
+</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+          .MathJax {
+  font-size: 180%; /* Adjust the percentage as needed */
+}
+  </style>
+
+  <title>Flecha Dev Log #28: Testing the Installation, Not the Checkout</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <script defer src="/assets/flecha-highlight.js"></script>
+  
+  <link href="/atom.xml" type="application/atom+xml" rel="alternate" title="ATOM Feed" /> <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Flecha Dev Log #28: Testing the Installation, Not the Checkout | Cecil Daemon’s Wish</title>
+<meta name="generator" content="Jekyll v4.3.3" />
+<meta property="og:title" content="Flecha Dev Log #28: Testing the Installation, Not the Checkout" />
+<meta name="author" content="J. Alex Buschinelli" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Introduction" />
+<meta property="og:description" content="Introduction" />
+<link rel="canonical" href="http://localhost:4000/flecha-testing-the-installation-not-the-checkout" />
+<meta property="og:url" content="http://localhost:4000/flecha-testing-the-installation-not-the-checkout" />
+<meta property="og:site_name" content="Cecil Daemon’s Wish" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-05-13T00:00:00-03:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Flecha Dev Log #28: Testing the Installation, Not the Checkout" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"J. Alex Buschinelli","url":"https://alexbsec.github.io/"},"dateModified":"2026-05-13T00:00:00-03:00","datePublished":"2026-05-13T00:00:00-03:00","description":"Introduction","headline":"Flecha Dev Log #28: Testing the Installation, Not the Checkout","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/flecha-testing-the-installation-not-the-checkout"},"url":"http://localhost:4000/flecha-testing-the-installation-not-the-checkout"}</script>
+<!-- End Jekyll SEO tag -->
+
+</head>
+
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    
+    <div style="display: flex; justify-content: center; align-items: center; text-decoration: none;">
+      <a href="/" style="display: flex; align-items: center; text-decoration: none;">
+          <img src="/assets/cecil.gif" alt="Cecil Daemon" style="margin-right: 20px;"/>
+          
+          
+          <h1>cecil@celestial:/flecha-testing-the-installation-not-the-checkout $</h1>
+      
+      </a>
+  </div>
+  <br>
+    </a>
+    <div class="header-links">
+      <a href="/"><h2 class="header-link">Home</h2></a>
+<a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+<a href="/atom.xml"><h2 class="header-link">RSS</h2></a>
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Flecha Dev Log #28: Testing the Installation, Not the Checkout</h2>
+  <time datetime="2026-05-13T00:00:00-03:00" class="by-line">13 May 2026</time>
+  <p>Estimated read time: 2 minutes</p>
+  <h1 id="introduction"><a href="#intro"></a>Introduction</h1>
+
+<p>Hi folks!</p>
+
+<p>A compiler passing tests inside its own repository proves less than it first appears. The checkout contains source files, build metadata, generated artifacts, and paths that an installed user will never have.</p>
+
+<p>A release can be green in CI and still fail the moment somebody unpacks it elsewhere.</p>
+
+<p>Flecha’s release tests now treat the archive as a downstream user would: install it cleanly, move it, and build programs using only what the distribution promises.</p>
+
+<h1 id="the-archive-is-the-product"><a href="#the-archive-is-the-product"></a>The archive is the product</h1>
+
+<p>The important artifact is not the build directory. It is the archive containing <code class="language-plaintext highlighter-rouge">flecha</code>, Longbow, the runtime library, the standard library, editor support, licenses, and documentation in their installed layout.</p>
+
+<p>The smoke test unpacks that archive into a clean location and deliberately relocates it before running anything. If a binary accidentally remembers an absolute build path, relocation exposes the mistake immediately.</p>
+
+<p>The installed compiler must find its matching runtime relative to itself. Longbow must find the bundled standard library without a source-tree hint. A project must compile and link without reaching back into the original checkout.</p>
+
+<h1 id="consume-it-like-a-user"><a href="#consume-it-like-a-user"></a>Consume it like a user</h1>
+
+<p>The clean environment asks the same questions a new installation will:</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>flecha <span class="nt">--version</span>
+longbow <span class="nt">--version</span>
+longbow check
+longbow build
+longbow run
+</code></pre></div></div>
+
+<p>It also compiles direct single-file programs, exercises native output, checks local project dependencies, and verifies the packaged files themselves.</p>
+
+<p>This is an inversion worth emphasizing. Instead of testing internal targets and assuming packaging preserves them, the test begins with the package and sees whether public workflows survive.</p>
+
+<h1 id="host-tools-are-explicit"><a href="#host-tools-are-explicit"></a>Host tools are explicit</h1>
+
+<p>The archive carries the LLVM runtime it needs, so users do not need LLVM development headers merely to run Flecha. Producing a native executable still needs a host linker driver and platform startup files or SDK.</p>
+
+<p>Clean-install jobs provide only those documented prerequisites. If the archive works only because a full development environment happened to be preinstalled, the test should fail.</p>
+
+<p>Object emission and frontend checking remain useful distinctions: <code class="language-plaintext highlighter-rouge">flecha check</code> and <code class="language-plaintext highlighter-rouge">--emit-object</code> do not invoke the system linker, while an executable build does.</p>
+
+<h1 id="every-platform-is-a-consumer"><a href="#every-platform-is-a-consumer"></a>Every platform is a consumer</h1>
+
+<p>Linux, Windows under MSYS2 UCRT64, macOS x86-64, and macOS arm64 each run the archive as a fresh consumer.</p>
+
+<p>That is not one generic packaging test repeated four times. Paths, dynamic libraries, executable suffixes, native drivers, SDK discovery, archive formats, and shell behavior differ. The common contract is that an installation contains everything Flecha owns and clearly reports anything the host must supply.</p>
+
+<h1 id="release-engineering-is-language-work"><a href="#release-engineering-is-language-work"></a>Release engineering is language work</h1>
+
+<p>Modules, the runtime ABI, the standard library, native linking, and Longbow all meet inside the installed directory tree. A broken relative path can make a correct language feature unusable.</p>
+
+<p>Testing the public installation therefore protects architecture, not just packaging. It forces compiler and tooling components to agree on what the distribution boundary actually is.</p>
+
+<h1 id="conclusion"><a href="#conclusion"></a>Conclusion</h1>
+
+<p>The strongest release test starts by forgetting how the repository was built.</p>
+
+<p>By consuming a relocated archive in a clean environment, Flecha verifies the experience we are actually offering: unpack the toolchain, create or open a project, and build native code with documented host prerequisites.</p>
+
+<p>That makes a release feel less like a compressed build directory and more like a product we can hand to someone else.</p>
+
+<p>I hope you liked this write-up and learned something new. As always, don’t forget to do your <strong>research!</strong></p>
+
+<p><a href="/">Go back</a></p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-nc/3.0/deed.en_US">
+    <span>
+        <b>Alex Buschinelli</b>
+    </span>
+    
+    <span>© 2026</span>
+  </a>
+</footer>
+
+  
+</body>
+
+</html>

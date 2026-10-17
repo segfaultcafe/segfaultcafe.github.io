@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-GX2L7MWQLN"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-GX2L7MWQLN');
+</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="generator" content="Jekyll">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+          .MathJax {
+  font-size: 180%; /* Adjust the percentage as needed */
+}
+  </style>
+
+  <title>Flecha Dev Log #30: Defining a Supported Toolchain</title>
+
+  <link rel="stylesheet" href="/css/main.css">
+  <script defer src="/assets/flecha-highlight.js"></script>
+  
+  <link href="/atom.xml" type="application/atom+xml" rel="alternate" title="ATOM Feed" /> <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Flecha Dev Log #30: Defining a Supported Toolchain | Cecil Daemon’s Wish</title>
+<meta name="generator" content="Jekyll v4.3.3" />
+<meta property="og:title" content="Flecha Dev Log #30: Defining a Supported Toolchain" />
+<meta name="author" content="J. Alex Buschinelli" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Introduction" />
+<meta property="og:description" content="Introduction" />
+<link rel="canonical" href="http://localhost:4000/flecha-supported-toolchains" />
+<meta property="og:url" content="http://localhost:4000/flecha-supported-toolchains" />
+<meta property="og:site_name" content="Cecil Daemon’s Wish" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-07-09T00:00:00-03:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Flecha Dev Log #30: Defining a Supported Toolchain" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"J. Alex Buschinelli","url":"https://alexbsec.github.io/"},"dateModified":"2026-07-09T00:00:00-03:00","datePublished":"2026-07-09T00:00:00-03:00","description":"Introduction","headline":"Flecha Dev Log #30: Defining a Supported Toolchain","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/flecha-supported-toolchains"},"url":"http://localhost:4000/flecha-supported-toolchains"}</script>
+<!-- End Jekyll SEO tag -->
+
+</head>
+
+
+<body>
+  <div id="wrapper">
+    <header>
+  <div>
+    <a href="/">
+    
+    <div style="display: flex; justify-content: center; align-items: center; text-decoration: none;">
+      <a href="/" style="display: flex; align-items: center; text-decoration: none;">
+          <img src="/assets/cecil.gif" alt="Cecil Daemon" style="margin-right: 20px;"/>
+          
+          
+          <h1>cecil@celestial:/flecha-supported-toolchains $</h1>
+      
+      </a>
+  </div>
+  <br>
+    </a>
+    <div class="header-links">
+      <a href="/"><h2 class="header-link">Home</h2></a>
+<a href="/archive"><h2 class="header-link">Archive</h2></a>
+<a href="/about"><h2 class="header-link">About</h2></a>
+<a href="/atom.xml"><h2 class="header-link">RSS</h2></a>
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <section id="main_content">
+        <article>
+  <h2>Flecha Dev Log #30: Defining a Supported Toolchain</h2>
+  <time datetime="2026-07-09T00:00:00-03:00" class="by-line">09 Jul 2026</time>
+  <p>Estimated read time: 2 minutes</p>
+  <h1 id="introduction"><a href="#intro"></a>Introduction</h1>
+
+<p>Hi folks!</p>
+
+<p>“Requires LLVM” sounds like documentation until the compiler builds with one version, CI uses another, and a release silently picks up whatever a rolling package manager installed that morning.</p>
+
+<p>Support needs a definition that the build system can enforce.</p>
+
+<p>Flecha now has one toolchain policy connecting local configuration, continuous integration, release production, and clean-install verification.</p>
+
+<h1 id="ranges-for-source-builds"><a href="#ranges-for-source-builds"></a>Ranges for source builds</h1>
+
+<p>Source builds accept explicit version ranges:</p>
+
+<ul>
+  <li>CMake 3.20 or newer;</li>
+  <li>LLVM development packages from 17 through 23;</li>
+  <li>Clang from 17 through 23;</li>
+  <li>GCC from 13 through 16;</li>
+  <li>Apple Clang from 16 through 17;</li>
+  <li>a C and C++ compiler from the same toolchain with C++23 support.</li>
+</ul>
+
+<p>CMake detects these versions before compilation and rejects unsupported or incomplete combinations. When LLVM is installed outside the default search path, <code class="language-plaintext highlighter-rouge">LLVM_DIR</code> points at its CMake package directory.</p>
+
+<p>Failing at configuration is much kinder than reaching hundreds of compiler errors caused by an incompatible LLVM API.</p>
+
+<h1 id="pinned-release-baselines"><a href="#pinned-release-baselines"></a>Pinned release baselines</h1>
+
+<p>Ranges are appropriate for contributors. Release artifacts need tighter baselines.</p>
+
+<p>Linux x86-64 is produced on Ubuntu 24.04 with Clang and LLVM 18. Windows x86-64 uses the MSYS2 UCRT64 environment with Clang and LLVM 23. macOS x86-64 and arm64 use macOS 15, Homebrew Clang and LLVM 18 for the build, and Xcode 16.4 with Apple Clang 17 for native linking.</p>
+
+<p>Each release job prints and verifies the compiler, LLVM, linker, target, platform runtime, and SDK versions. A package-manager update cannot quietly change the compiler that produced the release.</p>
+
+<h1 id="builders-and-users-need-different-things"><a href="#builders-and-users-need-different-things"></a>Builders and users need different things</h1>
+
+<p>Building Flecha from source requires LLVM development files. Running a Flecha release archive does not: the archive carries its matching LLVM shared runtime.</p>
+
+<p>Users who build native executables still need the host’s linker driver and system development or SDK components. That distinction is now explicit in both documentation and clean-install tests.</p>
+
+<p>It avoids two opposite mistakes: telling users to install an entire compiler-development stack they do not need, or suggesting native linking can work without the platform pieces only the operating system can provide.</p>
+
+<h1 id="policy-lives-in-code"><a href="#policy-lives-in-code"></a>Policy lives in code</h1>
+
+<p>The supported ranges are not prose copied into a README and forgotten. CMake policy, CI matrices, release workflows, and documentation change together.</p>
+
+<p>Adding a compiler or LLVM major means exercising the full suite: regular tests, sanitizers, packaging, installed layouts, clean consumers, and platform-specific native output. “It configured on my machine” is useful evidence, but it is not the support bar.</p>
+
+<h1 id="why-this-is-architectural"><a href="#why-this-is-architectural"></a>Why this is architectural</h1>
+
+<p>Flecha’s backend uses LLVM, its driver invokes platform-native tools, and its release packages must be relocatable. The version matrix is where those three systems agree.</p>
+
+<p>Writing it down forced hidden assumptions into the open: which LLVM APIs we rely on, which C++ language level the compiler uses, which Windows runtime we target, and which macOS SDK produced a compatible archive.</p>
+
+<h1 id="conclusion"><a href="#conclusion"></a>Conclusion</h1>
+
+<p>A supported toolchain is a tested contract, not an optimistic list of software names.</p>
+
+<p>Flecha now rejects unsupported combinations early, pins the environments that create releases, verifies what actually ran, and separates source-builder requirements from archive-user requirements.</p>
+
+<p>It is not the flashiest compiler feature, but it is one of the things that makes every other feature reproducible.</p>
+
+<p>I hope you liked this write-up and learned something new. As always, don’t forget to do your <strong>research!</strong></p>
+
+<p><a href="/">Go back</a></p>
+
+</article>
+      </section>
+    </div>
+  </div>
+
+   <footer>
+  <a href="https://creativecommons.org/licenses/by-nc/3.0/deed.en_US">
+    <span>
+        <b>Alex Buschinelli</b>
+    </span>
+    
+    <span>© 2026</span>
+  </a>
+</footer>
+
+  
+</body>
+
+</html>
