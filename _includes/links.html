@@ -1,4 +1,13 @@
+{% if page.lang == "pt-BR" %}
+<a href="{{ "/pt-br/" | prepend: site.baseurl | replace: '//', '/' }}"><h2 class="header-link">Início</h2></a>
+<a href="{{ "/pt-br/archive" | prepend: site.baseurl | replace: '//', '/' }}"><h2 class="header-link">Arquivo</h2></a>
+<a href="{{ "/about" | prepend: site.baseurl | replace: '//', '/' }}"><h2 class="header-link">Sobre</h2></a>
+<a href="{{ "/pt-br/atom.xml" | prepend: site.baseurl | replace: '//', '/' }}"><h2 class="header-link">RSS</h2></a>
+<a href="{{ "/" | prepend: site.baseurl | replace: '//', '/' }}" hreflang="en"><h2 class="header-link">English</h2></a>
+{% else %}
 <a href="{{ "/" | prepend: site.baseurl | replace: '//', '/' }}"><h2 class="header-link">Home</h2></a>
 <a href="{{ "/archive" | prepend: site.baseurl | replace: '//', '/' }}"><h2 class="header-link">Archive</h2></a>
 <a href="{{ "/about" | prepend: site.baseurl | replace: '//', '/' }}"><h2 class="header-link">About</h2></a>
 <a href="{{ "/atom.xml" | prepend: site.baseurl | replace: '//', '/' }}"><h2 class="header-link">RSS</h2></a>
+<a href="{{ "/pt-br/" | prepend: site.baseurl | replace: '//', '/' }}" hreflang="pt-BR"><h2 class="header-link">Português</h2></a>
+{% endif %}

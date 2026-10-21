@@ -6,12 +6,24 @@ author:
   url: "https://alexbsec.github.io/"
 
 baseurl: /
+url: "https://segfaultcafe.github.io"
 
 source: .
 destination: ./_site
 permalink: /:title
 paginate: 3
 paginate_path: /page/:num/
+
+future: true
+plugins:
+  - jekyll-seo-tag
+  - jekyll-paginate
+  - jekyll-sitemap
+
+collections:
+  pt_br_posts:
+    output: true
+    permalink: /pt-br/:name
 
 defaults:
   -
@@ -20,12 +32,14 @@ defaults:
       type: "posts"
     values:
       layout: "post"
-
-future: true
-plugins:
-  - jekyll-seo-tag
-  - jekyll-paginate
-  - jekyll-sitemap
+      lang: "en"
+  -
+    scope:
+      path: ""
+      type: "pt_br_posts"
+    values:
+      layout: "post"
+      lang: "pt-BR"
 
 # Custom variables
 owner : "Alex Buschinelli"
