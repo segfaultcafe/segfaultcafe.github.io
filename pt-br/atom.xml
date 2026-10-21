@@ -1,0 +1,24 @@
+---
+layout: null
+lang: pt-BR
+permalink: /pt-br/atom.xml
+---
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>{{ site.title | append: " — Português" | xml_escape }}</title>
+    <description>Posts do blog traduzidos para português do Brasil</description>
+    <link>{{ site.url }}/pt-br/</link>
+    <atom:link href="{{ site.url }}/pt-br/atom.xml" rel="self" type="application/rss+xml" />
+    {% assign posts = site.pt_br_posts | sort: "date" | reverse %}
+    {% for post in posts limit:10 %}
+      <item>
+        <title>{{ post.title | xml_escape }}</title>
+        <description>{{ post.content | xml_escape }}</description>
+        <pubDate>{{ post.date | date: "%a, %d %b %Y %H:%M:%S %z" }}</pubDate>
+        <link>{{ site.url }}{{ post.url }}</link>
+        <guid isPermaLink="true">{{ site.url }}{{ post.url }}</guid>
+      </item>
+    {% endfor %}
+  </channel>
+</rss>

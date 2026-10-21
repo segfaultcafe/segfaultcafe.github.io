@@ -5,6 +5,12 @@ layout: default
 <article>
   <h2>{{ page.title }}</h2>
   <time datetime="{{ page.date | date_to_xmlschema }}" class="by-line">{{ page.date | date_to_string }}</time>
+  {% if page.lang == "pt-BR" %}
+  <p>Tempo estimado de leitura: {{ content | number_of_words | divided_by: 200 }} minutos</p>
+  <p class="language-switch"><a href="{{ page.original_url | prepend: site.baseurl | replace: '//', '/' }}" hreflang="en">Read in English</a></p>
+  {% else %}
   <p>Estimated read time: {{ content | number_of_words | divided_by: 200 }} minutes</p>
+  <p class="language-switch"><a href="{{ '/pt-br' | append: page.url | prepend: site.baseurl | replace: '//', '/' }}" hreflang="pt-BR">Leia em português</a></p>
+  {% endif %}
   {{ content }}
 </article>
