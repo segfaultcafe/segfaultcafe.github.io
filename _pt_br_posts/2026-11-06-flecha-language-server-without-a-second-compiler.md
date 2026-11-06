@@ -1,5 +1,5 @@
 ---
-title: "Flecha Dev Log #36: Um Servidor de Linguagem sem um Segundo Compilador"
+title: "Flecha Dev Log #36: Um LSP sem um Segundo Compilador"
 date: 2026-11-06
 published: true
 lang: pt-BR
@@ -12,23 +12,23 @@ permalink: /pt-br/flecha-language-server-without-a-second-compiler
 
 Olá, pessoal!
 
-Flecha já oferece realce de sintaxe e pacotes para editores. Eles reconhecem um arquivo fonte, colorem seus tokens e fornecem os detalhes comuns de edição que fazem uma linguagem se sentir em casa.
+Flecha já tem syntax highlighting e pacotes para editores. Esses pacotes reconhecem arquivos Flecha, destacam seus tokens e oferecem o básico para que a linguagem pareça parte do editor.
 
-Eles não conseguem explicar por que um nome está ausente, onde um símbolo foi declarado ou se uma alteração ainda não salva continua sendo aceita pelo verificador de tipos.
+Mas não sabem dizer por que um nome não foi encontrado, onde um símbolo foi declarado ou se uma alteração ainda não salva continua passando no type checker.
 
-É nesse limite que um servidor de linguagem começa. A implementação tentadora seria colocar um parser dentro da ferramenta do editor e, aos poucos, ensinar a ele uma parte suficiente da linguagem para responder perguntas úteis. Decidimos não construir um segundo compilador por acidente.
+É aí que entra um LSP. A tentação seria colocar um parser dentro da extensão do editor e ensiná-lo, aos poucos, a entender o suficiente da linguagem para responder perguntas úteis. Decidimos não acabar construindo um segundo compilador sem querer.
 
-Em vez disso, estamos projetando `flecha-lsp` como um binário separado escrito na própria Flecha. O servidor concluído se comunicará com o editor pelo Language Server Protocol e consultará o compilador selecionado pelo workspace para obter informações sobre a linguagem.
+Em vez disso, estamos projetando `flecha-lsp` como um binário separado, escrito na própria Flecha. Ele falará LSP com o editor e consultará o compilador escolhido para o workspace sempre que precisar de informações semânticas sobre a linguagem.
 
 # [](#the-server-is-not-the-compiler)O servidor não é o compilador
 
-Um LSP e um compilador precisam de tipos diferentes de estado.
+O LSP e o compilador precisam manter estados diferentes.
 
-O servidor de linguagem é responsável por questões relacionadas ao editor: mensagens JSON-RPC, documentos abertos, versões de documentos, URIs de arquivos, o ciclo de vida do LSP e a conversão entre posições no código-fonte. O compilador já é responsável por tokenização, parsing, imports, resolução de nomes, tipos e diagnósticos.
+O `flecha-lsp` cuida do que pertence ao editor: mensagens JSON-RPC, documentos abertos, versões, file URIs, o lifecycle do LSP e a conversão de posições no código-fonte. O compilador já cuida de tokenização, parsing, imports, resolução de nomes, tipos e diagnósticos.
 
-Duplicar a segunda lista dentro do primeiro processo criaria duas definições de Flecha. Cada mudança na linguagem precisaria ser implementada duas vezes, e o editor poderia discordar do build executado um segundo depois.
+Duplicar dentro do LSP tudo o que já existe no compilador criaria duas versões da linguagem. Cada mudança em Flecha teria de ser implementada duas vezes, e o que o editor mostra poderia divergir do build executado um segundo depois.
 
-O modelo de processos mantém uma única autoridade:
+Com esse modelo de processos, temos uma única fonte de verdade:
 
 ```text
 Editor
@@ -43,13 +43,13 @@ flecha analyze --stdio
 Parser, carregador de módulos e analisador semântico de Flecha
 ```
 
-`flecha-lsp` não fará link com as classes C++ do compilador nem carregará um plugin do compilador por meio do runtime. Ele iniciará o compilador do workspace como um processo filho. Não haverá daemon global, listener de rede ou ABI pública do compilador escondida atrás da integração com o editor.
+`flecha-lsp` não fará link direto com as classes C++ do compilador, nem carregará um plugin do compilador via runtime. Em vez disso, iniciará o compilador do workspace como um processo filho. Não haverá daemon global, listener de rede ou ABI pública do compilador escondida atrás da integração com o editor.
 
-Essa separação permite que o compilador mude internamente enquanto a interface continua restrita a dados simples: versões, recursos, texto do código-fonte, intervalos de bytes, códigos de diagnóstico e mensagens.
+Essa separação permite que a implementação interna do compilador mude enquanto a fronteira entre os processos continua restrita a dados simples: versões, capabilities, texto do código-fonte, byte ranges, códigos de diagnóstico e mensagens.
 
 # [](#three-versions-not-one)Três versões, não uma
 
-Manter o servidor em um repositório separado levantou imediatamente uma objeção útil: versionamento acoplado tornaria essa separação quase cosmética.
+Manter o servidor em outro repositório levantou imediatamente uma questão importante: se as versões continuassem acopladas, essa separação seria quase só cosmética.
 
 A arquitetura possui, portanto, três versões independentes:
 
@@ -59,19 +59,19 @@ versão do compilador Flecha
 versão do protocolo de análise do compilador
 ```
 
-O servidor não exige que sua própria versão corresponda à versão do compilador. Ele negociará as versões major e minor do protocolo de análise com o compilador selecionado. Versões major diferentes são incompatíveis; versões minor mais novas podem adicionar recursos opcionais.
+O servidor não precisa ter a mesma versão do compilador. Ao iniciar, ele negociará com o compilador selecionado uma versão major e minor do protocolo de análise. Majors diferentes são incompatíveis; uma minor mais nova pode adicionar capabilities opcionais.
 
-É pela mesma razão que nós da AST e ponteiros do compilador não podem atravessar o limite entre processos. Esses objetos descrevem uma implementação do compilador. O protocolo de análise descreve fatos que um editor pode consumir.
+É também por isso que nós da AST e ponteiros internos do compilador não podem atravessar essa fronteira. Esses objetos pertencem a uma implementação específica do compilador. O protocolo de análise descreve informações que o editor consegue consumir.
 
-A busca inicial pela toolchain dará preferência a uma configuração explícita do editor, depois a `FLECHA_COMPILER`, depois a uma futura seleção de toolchain específica do projeto e, por fim, a `flecha` encontrada em `PATH`. Um workspace deve ser analisado pelo compilador que realmente fará seu build.
+A descoberta inicial da toolchain dará preferência a uma configuração explícita do editor, depois a `FLECHA_COMPILER`, a uma futura seleção de toolchain por projeto e, por fim, ao `flecha` encontrado em `PATH`. O workspace deve ser analisado pelo mesmo compilador que fará o build.
 
-# [](#why-write-it-in-flecha)Por que escrevê-lo em Flecha?
+# [](#why-write-it-in-flecha)Por que escrever em Flecha?
 
-A escolha mais segura para o bootstrap seria escrever o servidor em uma linguagem com bibliotecas de protocolo maduras. Isso também evitaria exercitar exatamente as partes de Flecha das quais uma ferramenta de longa duração precisa.
+A escolha mais segura para o bootstrap seria escrever o servidor em uma linguagem com bibliotecas de protocolo maduras. Mas isso também nos pouparia de exercitar justamente as partes de Flecha de que um processo de longa duração precisa.
 
-Escrever `flecha-lsp` em Flecha transforma o projeto em um usuário de peso da linguagem, da biblioteca padrão, do gerenciador de pacotes, do modelo de I/O, de buffers com ownership, de estruturas, de erros e do suporte a JSON.
+Escrever `flecha-lsp` em Flecha coloca à prova a linguagem, a biblioteca padrão, o gerenciador de pacotes, o modelo de I/O, buffers com ownership, structures, errors e o suporte a JSON.
 
-A primeira prova foi deliberadamente pequena. Instalamos o pacote público `flecha/json` e desserializamos JSON em uma estrutura Flecha decorada contendo um array proprietário:
+A primeira prova foi pequena de propósito. Instalamos o pacote público `flecha/json` e desserializamos um JSON para uma structure Flecha decorada, contendo um array com ownership:
 
 <div class="language-flecha highlighter-rouge"><div class="highlight"><pre class="highlight"><code class="language-flecha">@json(structure)
 structure Test {
@@ -79,13 +79,13 @@ structure Test {
     own []i32 values;
 };</code></pre></div></div>
 
-Isso não produziu um servidor de linguagem, mas respondeu a uma pergunta importante sobre o bootstrap: dados de protocolo tipados podem ser representados e decodificados em Flecha hoje.
+Isso ainda não nos deu um LSP, mas respondeu a uma pergunta importante do bootstrap: hoje já conseguimos representar e decodificar dados tipados de protocolo em Flecha.
 
-Parâmetros específicos de métodos LSP podem usar métodos `@json` gerados. O envelope genérico de JSON-RPC não pode ser tratado da mesma forma porque `params` e `result` são heterogêneos. Envelopes recebidos podem omitir `id` em notificações ou conter valores numéricos, textuais ou `null`; IDs válidos de requisições LSP são inteiros ou strings. Esse envelope será processado manualmente, e o dispatch decodificará o intervalo bruto de `params` para a estrutura tipada apropriada.
+Os parâmetros específicos de cada método LSP podem usar os métodos gerados por `@json`. O envelope genérico de JSON-RPC não pode ser tratado da mesma forma, porque `params` e `result` não têm um único tipo. Envelopes recebidos podem omitir `id` em notifications ou conter valores numéricos, textuais ou `null`; no LSP, request IDs válidos são inteiros ou strings. O envelope será processado manualmente, e o dispatcher decodificará o trecho bruto de `params` para a structure tipada correspondente.
 
-# [](#framing-comes-before-rpc)O framing vem antes do RPC
+# [](#framing-comes-before-rpc)Framing vem antes de RPC
 
-JSON-RPC descreve mensagens, mas a entrada padrão é apenas um fluxo de bytes. LSP adiciona uma regra de framing:
+JSON-RPC descreve mensagens, mas stdin é apenas uma sequência de bytes. O LSP acrescenta uma regra de framing:
 
 ```text
 Content-Length: <quantidade de bytes em UTF-8>\r\n
@@ -93,27 +93,27 @@ Content-Length: <quantidade de bytes em UTF-8>\r\n
 <corpo JSON>
 ```
 
-Escolhemos construir esse transporte antes do dispatcher de RPC. Enquanto não for possível ler um corpo completo sem consumir bytes da próxima mensagem, parsing de JSON é o problema errado.
+Decidimos implementar essa camada de transporte antes do dispatcher de RPC. Enquanto não conseguirmos ler um body completo sem consumir bytes da mensagem seguinte, parsing de JSON ainda é o problema errado.
 
-O leitor de frames precisa lidar com detalhes que uma demonstração bem-sucedida de uma única mensagem esconde:
+O framed reader precisa lidar com detalhes que um demo de uma única mensagem não revela:
 
-- uma leitura do sistema operacional pode retornar apenas parte de um cabeçalho ou corpo;
+- uma chamada de leitura ao sistema operacional pode devolver só parte de um header ou body;
 - várias mensagens podem já estar no buffer;
-- `Content-Length` deve aparecer exatamente uma vez e seu nome não diferencia maiúsculas de minúsculas;
-- cabeçalhos desconhecidos são válidos e ignorados;
-- o tamanho precisa ser validado antes da alocação;
-- cabeçalhos e corpos precisam de limites explícitos; e
-- EOF entre mensagens é uma desconexão limpa, enquanto EOF dentro de uma mensagem indica entrada truncada.
+- `Content-Length` é obrigatório, deve aparecer uma única vez e seu nome é case-insensitive;
+- headers desconhecidos são válidos e devem ser ignorados;
+- o valor precisa ser validado antes da alocação;
+- headers e bodies precisam de limites explícitos; e
+- EOF entre mensagens é limpo, enquanto EOF no meio de uma mensagem indica input truncado.
 
-Um corpo vazio também não pode compartilhar a representação usada para uma desconexão limpa. O leitor retorna, portanto, um corpo, um booleano que indica se existe uma mensagem e um erro. O resultado adicional é pequeno, mas impede que um estado do protocolo finja ser outro.
+Um body vazio também não pode ter a mesma representação de um EOF limpo. Por isso, o reader retorna o body, um booleano indicando se existe uma mensagem e um error. Esse resultado extra é pequeno, mas evita representar dois estados diferentes do protocolo da mesma maneira.
 
-A saída padrão deve conter apenas mensagens LSP com framing. Logs e diagnósticos vão para a saída de erro, pois uma única linha sem framing corrompe a conexão com o editor.
+Stdout deve conter somente mensagens LSP com framing. Logs e diagnósticos vão para stderr, porque uma única linha sem framing já é suficiente para corromper a conexão com o editor.
 
-# [](#small-parser-decisions)Pequenas decisões do parser
+# [](#small-parser-decisions)Pequenas decisões no parser
 
-O primeiro rascunho do leitor também mostrou a rapidez com que código orientado a bytes fica enigmático.
+O primeiro rascunho do reader também mostrou como código que manipula bytes se torna críptico rapidamente.
 
-Comparações com `13`, `10`, `32`, `48` e `57` podem representar ASCII corretamente, mas escondem se o parser procura um final de linha, whitespace opcional ou um dígito decimal. Mantivemos o buffer de transporte como bytes e convertemos bytes individuais para `char` durante o parsing.
+Comparações com `13`, `10`, `32`, `48` e `57` podem estar corretas em ASCII, mas escondem se o parser está procurando um fim de linha, whitespace opcional ou um dígito decimal. Mantivemos o buffer de transporte como bytes e convertemos cada byte para `char` apenas durante o parsing.
 
 Também reutilizamos a biblioteca de texto padrão em vez de manter um acumulador decimal manual:
 
@@ -122,27 +122,27 @@ Também reutilizamos a biblioteca de texto padrão em vez de manter um acumulado
 value, parseErr :=
     strings::stringv_to_int&lt;usize&gt;(VALUE_TEXT);</code></pre></div></div>
 
-O parser ao redor ainda precisa realizar trabalho específico do protocolo. Ele remove apenas espaço e tab horizontal porque o espaço em branco opcional no estilo HTTP abrange menos caracteres que a categoria completa de espaços em branco ASCII. Ele rejeita um `+` inicial, tamanhos duplicados, tamanhos ausentes, overflow e valores acima do limite configurado para o corpo.
+O restante do parser ainda precisa aplicar as regras específicas do protocolo. Ele remove somente espaços e tabs horizontais, porque o whitespace opcional no estilo HTTP aceita menos caracteres do que a categoria completa de whitespace ASCII. Também rejeita um `+` inicial, `Content-Length` duplicado ou ausente, overflow e valores acima do limite configurado para o body.
 
-A comparação que não diferencia maiúsculas de minúsculas continua sendo uma pequena função auxiliar local que opera sobre dois slices de bytes. Dar a ambos os operandos a mesma representação evitou misturar índices `usize` de slices com índices `u32` de string views sem nenhum benefício semântico.
+A comparação case-insensitive continua sendo um pequeno helper local sobre dois slices de bytes. Usar a mesma representação nos dois operandos evita misturar índices `usize` de slices com índices `u32` de `stringv` sem nenhum benefício semântico.
 
-Essas não são decisões glamorosas de um servidor de linguagem. São as decisões que determinam se o servidor continuará conectado ao editor depois do primeiro pacote incomum.
+Nada disso é glamouroso para um LSP. Mas são exatamente essas decisões que determinam se o servidor continuará conectado depois da primeira mensagem fora do happy path.
 
-# [](#tests-define-done)Os testes definem o que está pronto
+# [](#tests-define-done)Os testes definem quando está pronto
 
-A matriz de testes de framing é o próximo critério de conclusão, não uma tarefa de acabamento posterior à implementação.
+A matriz de testes de framing é o próximo gate, não um acabamento para depois da implementação.
 
-Ela cobre entrada completa e recebida um byte por vez, mensagens consecutivas, cabeçalhos com diferentes combinações de maiúsculas e minúsculas, cabeçalhos desconhecidos, corpos com tamanho zero, EOF limpo, tamanhos duplicados ou ausentes, overflow, limites de tamanho e cabeçalhos ou corpos truncados.
+Ela cobre input completo e recebido byte a byte, mensagens consecutivas, headers com capitalização variada, headers desconhecidos, bodies vazios, EOF limpo, `Content-Length` duplicado ou ausente, overflow, limites de tamanho e headers ou bodies truncados.
 
-Ao projetar esses testes, já encontramos distinções que o primeiro rascunho não expressava de forma limpa. Uma função auxiliar não pode executar `break` no loop de seu chamador. O final do cabeçalho não é o mesmo evento que EOF. Um corpo válido de tamanho zero não é o mesmo resultado que nenhuma mensagem. É fácil inverter uma verificação de EOF inesperado quando tanto o caminho feliz quanto o caminho de falha são representados por um valor `error`.
+Ao desenhar esses testes, já encontramos distinções que o primeiro rascunho não representava bem. Um helper não pode dar `break` no loop de quem o chamou. Encontrar o fim do header não é o mesmo que encontrar EOF. Um body válido de tamanho zero não é o mesmo que não receber mensagem alguma. E é fácil inverter uma verificação de EOF inesperado quando tanto o happy path quanto o caminho de falha são representados por um valor `error`.
 
-O repositório agora contém os documentos de arquitetura e uma primeira implementação do leitor de frames. O leitor não deve ser chamado de concluído até que essa matriz passe. A escrita, o dispatcher JSON-RPC, o ciclo de vida do LSP, o modo de análise do compilador e a integração com o editor ainda precisam ser implementados.
+O repositório já contém os documentos de arquitetura e a primeira implementação do framed reader. Ele só estará pronto quando toda essa matriz passar. Ainda faltam o writer, o dispatcher JSON-RPC, o lifecycle do LSP, o modo de análise do compilador e a integração com os editores.
 
 # [](#the-compiler-conversation)A conversa com o compilador
 
-O lado proposto para o compilador é `flecha analyze --stdio`. Ele usará um protocolo JSON-RPC 2.0 menor e específico de Flecha em vez de fingir que o próprio compilador é um servidor LSP.
+No lado do compilador, a proposta é `flecha analyze --stdio`. Ele usará um protocolo JSON-RPC 2.0 mais enxuto e específico de Flecha, sem fingir que o próprio compilador é um LSP.
 
-O processo de análise será responsável por overlays de código-fonte para documentos ainda não salvos. Cada carregamento de módulo primeiro verificará se o LSP forneceu uma versão mais nova em memória e recorrerá ao sistema de arquivos apenas quando nenhum overlay existir. Isso será importante tanto para arquivos importados quanto para o arquivo aberto no editor.
+O processo de análise manterá source overlays para documentos ainda não salvos. Sempre que carregar um módulo, primeiro verificará se o LSP forneceu uma versão mais nova em memória; só recorrerá ao filesystem quando não houver overlay. Isso importa tanto para arquivos importados quanto para o arquivo atualmente aberto no editor.
 
 Os diagnósticos do compilador atravessarão o limite como valores estáveis:
 
@@ -162,37 +162,37 @@ Os diagnósticos do compilador atravessarão o limite como valores estáveis:
 }
 ```
 
-O compilador reportará intervalos de bytes UTF-8 porque essa é sua representação nativa de código-fonte. O LSP será responsável pela conversão para as posições de linha e caractere negociadas com o editor, incluindo UTF-16 quando necessário. Versões de documentos acompanharão os resultados para que diagnósticos desatualizados possam ser descartados antes de chegar à tela.
+O compilador retornará byte ranges em UTF-8, porque essa é sua representação nativa do código-fonte. O LSP fará a conversão para as posições de linha e caractere negociadas com o editor, incluindo UTF-16 quando necessário. A versão do documento acompanhará cada resultado, permitindo descartar diagnósticos desatualizados antes que cheguem à tela.
 
-# [](#one-vertical-slice)Um recorte vertical
+# [](#one-vertical-slice)Um primeiro fluxo ponta a ponta
 
-Flecha 0.3.1 expõe streams padrão bloqueantes e pipes de processos filhos. A primeira implementação será, portanto, sequencial: ler uma mensagem do editor, fazer o dispatch, fazer no máximo uma solicitação ao analisador, escrever a resposta e continuar.
+Flecha 0.3.1 oferece streams padrão bloqueantes e pipes para processos filhos. Por isso, a primeira implementação será sequencial: ler uma mensagem do editor, fazer o dispatch, enviar no máximo uma request ao analisador, escrever a response e continuar.
 
-Não há cancelamento ou análise em background nesse modelo. Mensagens do editor que chegarem durante a análise permanecem no buffer do sistema operacional. Essa limitação é aceitável para o primeiro caminho porque os limites do protocolo não dependem de concorrência.
+Nesse modelo, ainda não há cancellation nem análise em background. Mensagens que chegarem enquanto uma análise estiver em andamento ficarão no buffer do sistema operacional. Essa limitação é aceitável para o primeiro fluxo, porque as fronteiras do protocolo não dependem de concorrência.
 
-O escopo é deliberadamente limitado:
+O objetivo é estreito de propósito:
 
 ```text
 editor inicia flecha-lsp
-  → initialize funciona
+  → initialize responde com sucesso
   → editor abre um documento Flecha ainda não salvo
-  → o compilador do workspace analisa seu texto em memória
+  → compilador do workspace analisa o texto em memória
   → diagnósticos são publicados
-  → shutdown funciona
+  → shutdown termina com sucesso
 ```
 
-Sincronização integral de documentos vem primeiro. Informações ao passar o cursor, ir para definição, referências, autocompletar, edições incrementais, cancelamento e workspaces paralelos vêm depois que os diagnósticos provarem o caminho completo.
+Full-document sync vem primeiro. Hover, go to definition, references, completion, incremental sync, cancellation e múltiplos workspaces vêm depois que os diagnósticos provarem o fluxo ponta a ponta.
 
 # [](#conclusion)Conclusão
 
-A primeira decisão importante do LSP não foi um recurso do editor. Foi decidir onde vive a verdade sobre a linguagem.
+A primeira decisão importante sobre o LSP não foi uma feature do editor. Foi decidir onde vive a fonte de verdade da linguagem.
 
-`flecha-lsp` será um binário Flecha com versionamento independente e responsável pelo protocolo do editor e pelo estado dos documentos. O compilador do workspace continuará responsável por parsing e semântica por trás de uma interface pequena e versionada entre processos. JSON-RPC conecta as peças, enquanto o framing com `Content-Length` torna o fluxo de bytes confiável o suficiente para transportá-lo.
+`flecha-lsp` será um binário escrito em Flecha e versionado de forma independente, responsável pelo protocolo do editor e pelo estado dos documentos. O compilador do workspace continuará responsável por parsing e semântica, por trás de uma interface pequena, versionada e entre processos. JSON-RPC conecta as duas partes; o framing com `Content-Length` torna o stream de bytes confiável o suficiente para transportá-las.
 
-Hoje temos o repositório, a arquitetura, desserialização de JSON funcionando e o primeiro rascunho do leitor de transporte. O trabalho imediato é fazer o framing passar pela matriz de testes de falha, implementar a escrita de saída com framing e então construir o menor ciclo de vida JSON-RPC completo.
+Hoje já temos o repositório, a arquitetura, desserialização de JSON funcionando e o primeiro rascunho do transport reader. O próximo passo é fazer o framing passar por toda a matriz de falhas, implementar o framed writer e então construir o menor lifecycle JSON-RPC completo.
 
-O servidor de linguagem ainda não é útil para um editor. Suas responsabilidades finalmente estão bem delimitadas o suficiente para que possamos construí-lo sem criar outra Flecha no caminho.
+O LSP ainda não é útil para um editor. Mas suas responsabilidades finalmente estão estreitas o suficiente para que possamos construí-lo sem criar outra implementação de Flecha no caminho.
 
-Espero que você tenha gostado deste texto e aprendido algo novo. Como sempre, não se esqueça de fazer sua **pesquisa!**
+Espero que tenham gostado deste texto e aprendido algo novo. Como sempre, não se esqueçam de fazer sua **pesquisa!**
 
 <a href="/pt-br/">Voltar</a>
