@@ -1,0 +1,93 @@
+---
+layout: page
+title: Projects
+permalink: /projects
+---
+
+<div class="projects-page">
+  <div class="projects-intro">
+    <p class="projects-kicker">// things I keep building</p>
+    <h1>Projects</h1>
+    <p class="projects-lede">Three long-running experiments in making low-level software feel deliberate, useful, and a little playful.</p>
+    <p class="language-switch"><a href="{{ '/pt-br/projects' | prepend: site.baseurl | replace: '//', '/' }}" hreflang="pt-BR">Leia em português</a></p>
+  </div>
+
+  <div class="project-list">
+    <article class="project-card project-card--flecha">
+      <div class="project-card__bar">
+        <span>01 / language</span>
+        <span class="project-card__status"><span aria-hidden="true"></span> active development</span>
+      </div>
+      <div class="project-card__body">
+        <figure class="project-card__visual project-card__visual--flecha">
+          <img src="{{ '/assets/projects/flecha.png' | prepend: site.baseurl | replace: '//', '/' }}" alt="Flecha's green, yellow, and blue arrow logo">
+          <figcaption>Systems language · compiler · toolchain</figcaption>
+        </figure>
+        <div class="project-card__copy">
+          <p class="project-card__eyebrow">Predictable native software</p>
+          <h2>Flecha</h2>
+          <p>Flecha is my attempt to make systems programming explicit without making every line feel hostile. It is a statically typed language and LLVM-based toolchain built around predictable execution, visible ownership, checked references and slices, strong diagnostics, and native code.</p>
+          <p>Beyond the syntax, it is becoming a complete working environment: compiler, standard library, tests, editor support, and Longbow for projects and packages. It is early-stage, but designed in public and exercised by real programs.</p>
+          <ul class="project-card__tags" aria-label="Flecha technologies">
+            <li>C++23</li><li>LLVM</li><li>compiler</li><li>systems</li>
+          </ul>
+          <div class="project-card__actions">
+            <a href="https://flecha-lang.org/">website</a>
+            <a href="https://github.com/segfaultcafe/flecha">source</a>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="project-card project-card--termify">
+      <div class="project-card__bar">
+        <span>02 / audio</span>
+        <span class="project-card__status"><span aria-hidden="true"></span> v0.8</span>
+      </div>
+      <div class="project-card__body">
+        <figure class="project-card__visual project-card__visual--termify">
+          <img src="{{ '/assets/projects/termify.png' | prepend: site.baseurl | replace: '//', '/' }}" alt="Termify terminal interface playing a track, with waveform, queue, and playback controls">
+          <figcaption>A music player that feels at home in the terminal</figcaption>
+        </figure>
+        <div class="project-card__copy">
+          <p class="project-card__eyebrow">Music without leaving the terminal</p>
+          <h2>Termify</h2>
+          <p>Termify turns the terminal into a focused music player rather than a thin wrapper around a browser. Built in modern C++ with FFmpeg and native audio backends, it can search, play online or local audio, and keep history, playlists, likes, queues, and a bounded cache.</p>
+          <p>The interface stays compact and keyboard-friendly without being austere: there is a live waveform, clickable controls, precise seeking, mouse support, and a self-contained downloader. No subscription, no ads, and no separate Python or yt-dlp installation.</p>
+          <ul class="project-card__tags" aria-label="Termify technologies">
+            <li>C++23</li><li>FFmpeg</li><li>SQLite</li><li>TUI</li>
+          </ul>
+          <div class="project-card__actions">
+            <a href="https://github.com/segfaultcafe/Termify">source &amp; releases</a>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="project-card project-card--flatearth">
+      <div class="project-card__bar">
+        <span>03 / engine</span>
+        <span class="project-card__status"><span aria-hidden="true"></span> active development</span>
+      </div>
+      <div class="project-card__body">
+        <figure class="project-card__visual project-card__visual--flatearth">
+          <div class="project-card__engine-label" aria-hidden="true">VULKAN_2D<br>ECS_TESTBED</div>
+          <img src="{{ '/assets/projects/flatearth.png' | prepend: site.baseurl | replace: '//', '/' }}" alt="Pixel-art tileset used by the Flatearth engine testbed">
+          <figcaption>Real testbed assets, rendered pixel-sharp</figcaption>
+        </figure>
+        <div class="project-card__copy">
+          <p class="project-card__eyebrow">A 2D engine that starts with 2D</p>
+          <h2>Flatearth</h2>
+          <p>Flatearth is a C++23 game engine built from the ground up for 2D work instead of treating it as a simplified 3D mode. Its Vulkan renderer, ECS, scene and asset systems, physics, animation, audio, particles, and TMX tilemaps meet in a small playable testbed.</p>
+          <p>It is also a place to explore explicit engine architecture: plain entity IDs, typed sparse sets, ordered systems, tagged allocation, and separate game and UI render passes. The goal is a small foundation whose moving parts stay visible.</p>
+          <ul class="project-card__tags" aria-label="Flatearth technologies">
+            <li>C++23</li><li>Vulkan</li><li>ECS</li><li>2D engine</li>
+          </ul>
+          <div class="project-card__actions">
+            <a href="https://github.com/segfaultcafe/Flatearth">source</a>
+          </div>
+        </div>
+      </div>
+    </article>
+  </div>
+</div>
