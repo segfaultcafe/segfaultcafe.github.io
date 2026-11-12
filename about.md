@@ -3,7 +3,7 @@ layout: page
 title: About
 ---
 
-Greetings! I'm Alex Buschinelli - or João Buschinelli in Brazil.
+Greetings! I'm Alex Buschinelli (also known as SegfaultCafé) - or João Buschinelli in Brazil.
 
 I'm a senior software engineer who enjoys building systems that keep working when the happy path stops being happy. Most of my professional work lives around Go, asynchronous workflows, messaging, distributed services, and the unglamorous but essential details that make integrations reliable: idempotency, retries, state machines, observability, and good tests.
 

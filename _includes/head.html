@@ -40,7 +40,7 @@
   <link rel="alternate" hreflang="pt-BR" href="{{ '/pt-br' | append: page.url | absolute_url }}">
   {% endif %}
 
-  <link rel="stylesheet" href="{{ "/css/main.css" | prepend: site.baseurl | replace: '//', '/' }}">
+  <link rel="stylesheet" href="{{ "/css/main.css" | prepend: site.baseurl | replace: '//', '/' }}?v={{ site.time | date: '%s' }}">
   <script defer src="{{ "/assets/flecha-highlight.js" | prepend: site.baseurl | replace: '//', '/' }}"></script>
   
   {% if page.lang == "pt-BR" %}
