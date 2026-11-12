@@ -44,3 +44,9 @@ defaults:
 # Custom variables
 owner : "Alex Buschinelli"
 year : "2023"
+
+giscus:
+  repo: "segfaultcafe/segfaultcafe.github.io"
+  repo_id: "R_kgDOK02tFw"
+  category: "Announcements"
+  category_id: "DIC_kwDOK02tF84DK9_r"

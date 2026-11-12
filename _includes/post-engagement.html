@@ -1,0 +1,35 @@
+<section
+  class="post-engagement"
+  aria-labelledby="community-title"
+>
+  <h3 id="community-title" class="post-engagement__title">
+    {% if page.lang == "pt-BR" %}Comunidade{% else %}Community{% endif %}
+  </h3>
+
+  <div class="giscus"></div>
+  <script src="https://giscus.app/client.js"
+          data-repo="{{ site.giscus.repo }}"
+          data-repo-id="{{ site.giscus.repo_id }}"
+          data-category="{{ site.giscus.category }}"
+          data-category-id="{{ site.giscus.category_id }}"
+          data-mapping="pathname"
+          data-strict="1"
+          data-reactions-enabled="1"
+          data-emit-metadata="0"
+          data-input-position="top"
+          data-theme="transparent_dark"
+          data-lang="{% if page.lang == 'pt-BR' %}pt{% else %}en{% endif %}"
+          data-loading="lazy"
+          crossorigin="anonymous"
+          async>
+  </script>
+  <noscript>
+    <p>
+      {% if page.lang == "pt-BR" %}
+      Ative o JavaScript para ver as curtidas e os comentários.
+      {% else %}
+      Enable JavaScript to view likes and comments.
+      {% endif %}
+    </p>
+  </noscript>
+</section>

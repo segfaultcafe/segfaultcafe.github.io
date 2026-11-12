@@ -13,4 +13,6 @@ layout: default
   <p class="language-switch"><a href="{{ '/pt-br' | append: page.url | prepend: site.baseurl | replace: '//', '/' }}" hreflang="pt-BR">Leia em português</a></p>
   {% endif %}
   {{ content }}
+
+  {% include post-engagement.html %}
 </article>

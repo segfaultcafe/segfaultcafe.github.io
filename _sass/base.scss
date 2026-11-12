@@ -210,6 +210,33 @@ hr {
   margin: 8px 0 24px;
 }
 
+/* Post reactions and comments */
+
+.post-engagement {
+  margin-top: 48px;
+  padding-top: 20px;
+  border-top: 1px dashed $conifer;
+}
+
+.post-engagement__title {
+  margin-bottom: 12px;
+  font-size: 18px !important;
+}
+
+.post-engagement__title::before {
+  content: ">> ";
+}
+
+.giscus,
+.giscus-frame {
+  width: 100%;
+}
+
+.giscus-frame {
+  border: 0;
+  color-scheme: dark;
+}
+
 /* Buttons
 */
 
